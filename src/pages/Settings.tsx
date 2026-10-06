@@ -6,7 +6,7 @@ import { Rise } from '../ui/kit'
 
 export function Settings() {
   const s = useSettings()
-  const [lang, setLang] = useState<Lang>('en')
+  const [lang, setLang] = useState<Lang>('pt')
   const stages = s.defaultStages[lang]
   const setStages = (list: string[]) => updateSettings({ defaultStages: { ...s.defaultStages, [lang]: list } })
   return (

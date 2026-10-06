@@ -7,7 +7,7 @@ export type MapStyle = 'white' | 'dark' | 'color'
 export type Lang = 'en' | 'pt'
 
 export const LANG_LABEL: Record<Lang, string> = { en: 'English', pt: 'Português' }
-export const LANG_ORDER: Lang[] = ['en', 'pt']
+export const LANG_ORDER: Lang[] = ['pt', 'en']
 
 export const STYLE_LABEL: Record<MapStyle, string> = { white: 'Branco', dark: 'Preto', color: 'Colorido' }
 export const STYLE_ORDER: MapStyle[] = ['color', 'white', 'dark']

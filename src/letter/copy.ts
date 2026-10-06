@@ -35,8 +35,9 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       { title: 'Aquecemos cada lead', text: 'Lemos os sinais: curtimos os posts deles e sugerimos comentários quando postam.' },
       { title: 'Call agendada', text: 'Com o lead aquecido, fazemos o reach out. A reunião cai na sua agenda.' },
     ],
+    // Fixed text (no {goal}): the default goal is an imperative, which would not read after "até".
     closing:
-      'O mapa neste baú traça a rota até {goal}. Queremos navegar com vocês. Escaneie o código para abrir seu presente.',
+      'O mapa neste baú traça a rota até transformar seu LinkedIn em pipeline\n\nQueremos navegar com vocês. Escaneie o código para abrir seu presente.',
     signoff: 'Até breve,\nTime Isla',
     qrCaption: 'Escaneie para abrir seu presente',
   },

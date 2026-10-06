@@ -21,8 +21,8 @@ COLUNAS
   Links antigos (com /q/, com ?t= ou /gift/expired) não funcionam mais.
   Vazio: o mapa é criado, mas só pode ser exportado depois que o link for colado.
 - meta (obrigatória): a meta final, impressa no X do mapa. Curta.
-  Ex.: $10M ARR, 100 new clients, R$ 5M em vendas
-- idioma: pt (português) ou en (inglês). Vazio: en.
+  Ex.: Transforme seu LinkedIn em pipeline, $10M ARR, 100 new clients
+- idioma: pt (português) ou en (inglês). Vazio: pt.
 - estilo: colorido, branco ou preto. Vazio: colorido.
 - logo: link https direto para a imagem do logo (PNG, SVG, JPG ou WebP),
   ou o código SVG colado na célula (começando com <svg).

@@ -70,11 +70,11 @@ function localRow(r: RawRow, i: number): ImportRow {
   const lang = readLang(langIn)
   const style = readStyle(styleIn.value, styleIn.key)
   const warnings = [
-    langIn && !lang && `Idioma "${langIn}" não reconhecido; usei inglês.`,
+    langIn && !lang && `Idioma "${langIn}" não reconhecido; usei português.`,
     styleIn.value && !style && `Estilo "${styleIn.value}" não reconhecido; usei colorido.`,
   ].filter(Boolean)
   return {
-    row: i, company, qr: pick(r, 'qr').value, goal, lang: lang ?? 'en', style: style ?? 'color',
+    row: i, company, qr: pick(r, 'qr').value, goal, lang: lang ?? 'pt', style: style ?? 'color',
     logo: pick(r, 'logo').value, warning: warnings.join(' '),
   }
 }

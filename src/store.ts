@@ -42,9 +42,9 @@ export const DEFAULT_NOTES: Record<Lang, string[]> = {
 
 /** What Isla protects the client from, on the sea creatures. */
 export const DEFAULT_DANGERS: Record<Lang, Dangers> = {
-  // Empty by default: the labels only appear once someone writes them for this client.
-  en: { kraken: '', whirlpool: '' },
-  pt: { kraken: '', whirlpool: '' },
+  // The whirlpool starts empty: its label only appears once someone writes it for this client.
+  en: { kraken: 'weeks without posting', whirlpool: '' },
+  pt: { kraken: 'semanas sem postar', whirlpool: '' },
 }
 
 /** The whirlpool took over the whale's danger label. */
@@ -238,7 +238,10 @@ export function uniqueSlug(base: string, exceptId?: string) {
   return slug
 }
 
-/** A blank map, not saved until saveClient is called. */
+/** The goal every new map starts with, printed at the X. */
+export const DEFAULT_GOAL = 'Transforme seu LinkedIn em pipeline'
+
+/** A blank map, in Portuguese, not saved until saveClient is called. */
 export function newClient(): Client {
   const now = Date.now()
   return {
@@ -246,13 +249,13 @@ export function newClient(): Client {
     company: '',
     slug: '',
     style: 'color',
-    lang: 'en',
-    goal: '$10M ARR',
-    stages: [...settings.defaultStages.en],
-    stageNotes: [...DEFAULT_NOTES.en],
+    lang: 'pt',
+    goal: DEFAULT_GOAL,
+    stages: [...settings.defaultStages.pt],
+    stageNotes: [...DEFAULT_NOTES.pt],
     start: '',
-    dangers: { ...DEFAULT_DANGERS.en },
-    destination: '$10M ARR',
+    dangers: { ...DEFAULT_DANGERS.pt },
+    destination: DEFAULT_GOAL,
     logo: null,
     logoMode: 'original',
     status: 'draft',
