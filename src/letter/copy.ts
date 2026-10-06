@@ -9,10 +9,10 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       'Thank you for opening the chest. We are Isla, and we turn your LinkedIn into booked sales meetings. We find the buyers who fit your ICP, grow and warm that network every day, and work every lead until it is a call on your calendar. You just approve.',
     howTitle: 'How Isla works',
     steps: [
-      { title: 'We find your buyers', text: 'We map your LinkedIn and identify the people who fit your ICP.' },
+      { title: 'We write content in your voice', text: 'We write your posts for you, in your voice. Nothing goes out until you approve.' },
       { title: 'New connections, daily', text: 'Every day we send connection requests, only to your target audience.' },
+      { title: 'We find your buyers', text: 'We map your LinkedIn and identify the people who fit your ICP.' },
       { title: 'Into the pipeline', text: 'New and existing connections enter a pipeline, from connecting to call booked.' },
-      { title: 'Content in your voice', text: 'We write posts in your voice. Nothing goes out until you approve.' },
       { title: 'We warm every lead', text: 'We read their signals: we like their posts and suggest comments when they post.' },
       { title: 'Call booked', text: 'Once a lead is warm, we reach out. The meeting lands on your calendar.' },
     ],
@@ -28,10 +28,10 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       'Obrigado por abrir o baú. Somos a Isla e transformamos o seu LinkedIn em reuniões de vendas agendadas. Encontramos os compradores que estão no seu ICP, crescemos e aquecemos essa rede todos os dias, e trabalhamos cada lead até virar uma call na sua agenda. Você só aprova.',
     howTitle: 'Como a Isla funciona',
     steps: [
-      { title: 'Encontramos seus compradores', text: 'Mapeamos o seu LinkedIn e identificamos quem está dentro do seu ICP.' },
+      { title: 'Nós escrevemos conteúdo na sua voz', text: 'Escrevemos os seus posts por você, com a sua voz. Nada é publicado sem a sua aprovação.' },
       { title: 'Conexões todos os dias', text: 'Todos os dias enviamos conexões, só para o seu público-alvo.' },
+      { title: 'Encontramos seus compradores', text: 'Mapeamos o seu LinkedIn e identificamos quem está dentro do seu ICP.' },
       { title: 'Tudo entra no pipeline', text: 'Conexões novas e antigas entram num pipeline, de conectando até call agendada.' },
-      { title: 'Conteúdo na sua voz', text: 'Escrevemos posts com a sua voz. Nada é publicado sem a sua aprovação.' },
       { title: 'Aquecemos cada lead', text: 'Lemos os sinais: curtimos os posts deles e sugerimos comentários quando postam.' },
       { title: 'Call agendada', text: 'Com o lead aquecido, fazemos o reach out. A reunião cai na sua agenda.' },
     ],
@@ -42,7 +42,7 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
   },
 }
 
-/** Pipeline stages drawn in the step 3 illustration. */
+/** Pipeline stages drawn in the step 4 illustration. */
 export const PIPELINE: Record<Lang, string[]> = {
   en: ['Connecting', 'Engaging', 'Reach out', 'Call booked'],
   pt: ['Conectando', 'Engajando', 'Reach out', 'Call agendada'],

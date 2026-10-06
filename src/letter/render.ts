@@ -306,14 +306,20 @@ function illustration(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: n
 
   switch (i) {
     case 0: {
-      // Profile cards; a magnifier picks out the ones that fit the ICP.
-      const cw = w * 0.62, ch = h * 0.24
-      profile(X(-0.92), Y(-0.86), cw, ch, ln, 0)
-      profile(X(-0.78), Y(-0.24), cw, ch, hatchA, 10)
-      profile(X(-0.92), Y(0.38), cw, ch, ln, 20)
-      rc.circle(X(0.5), Y(-0.08), h * 0.5, { ...ln, strokeWidth: 4, seed: seed + 30 })
-      rc.line(X(0.5) + h * 0.18, Y(-0.08) + h * 0.18, X(0.5) + h * 0.36, Y(-0.08) + h * 0.38, { ...ln, strokeWidth: 9, seed: seed + 31 })
-      rc.linearPath([[X(0.42), Y(-0.08)], [X(0.48), Y(0.04)], [X(0.62), Y(-0.2)]], { ...ln, strokeWidth: 5, seed: seed + 32 })
+      // A LinkedIn post in your voice, with the Approve key below.
+      const pw = w * 0.78, ph = h * 0.66
+      const x0 = X(-0.78), y0 = Y(-0.95)
+      rc.rectangle(x0, y0, pw, ph, { ...ln, seed })
+      rc.circle(x0 + 34, y0 + 32, 36, hatchA)
+      rc.line(x0 + 62, y0 + 26, x0 + pw * 0.55, y0 + 26, { ...thin, seed: seed + 1 })
+      rc.line(x0 + 62, y0 + 42, x0 + pw * 0.38, y0 + 42, { ...thin, seed: seed + 2 })
+      for (let k = 0; k < 3; k++) rc.line(x0 + 18, y0 + 72 + k * 18, x0 + pw - (k === 2 ? pw * 0.4 : 18), y0 + 72 + k * 18, { ...thin, seed: seed + 3 + k })
+      rc.rectangle(x0 + 18, y0 + 122, pw - 36, ph - 136, { ...hatchA, hachureGap: 14, seed: seed + 8 })
+      // Approve key, slightly offset like the landing's 3D key.
+      const kw = w * 0.56, kh = h * 0.24, kx = X(0.18) - kw / 2, ky = Y(0.5)
+      rc.rectangle(kx + 8, ky + 10, kw, kh, { ...solid, seed: seed + 9 })
+      rc.rectangle(kx, ky, kw, kh, { ...ln, fill: t.paper, fillStyle: 'solid', seed: seed + 10 })
+      label(pt ? 'Aprovar ✓' : 'Approve ✓', kx + kw / 2, ky + kh * 0.66, kh * 0.44)
       break
     }
     case 1: {
@@ -334,6 +340,17 @@ function illustration(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: n
       break
     }
     case 2: {
+      // Profile cards; a magnifier picks out the ones that fit the ICP.
+      const cw = w * 0.62, ch = h * 0.24
+      profile(X(-0.92), Y(-0.86), cw, ch, ln, 0)
+      profile(X(-0.78), Y(-0.24), cw, ch, hatchA, 10)
+      profile(X(-0.92), Y(0.38), cw, ch, ln, 20)
+      rc.circle(X(0.5), Y(-0.08), h * 0.5, { ...ln, strokeWidth: 4, seed: seed + 30 })
+      rc.line(X(0.5) + h * 0.18, Y(-0.08) + h * 0.18, X(0.5) + h * 0.36, Y(-0.08) + h * 0.38, { ...ln, strokeWidth: 9, seed: seed + 31 })
+      rc.linearPath([[X(0.42), Y(-0.08)], [X(0.48), Y(0.04)], [X(0.62), Y(-0.2)]], { ...ln, strokeWidth: 5, seed: seed + 32 })
+      break
+    }
+    case 3: {
       // The lead board: four stages, a card being dragged toward "call booked".
       const stages = PIPELINE[lang]
       const colW = w / 4 - 8
@@ -357,23 +374,6 @@ function illustration(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: n
       rc.curve([[cx0, cy0], [cx0 + colW * 0.5, cy0 + h * 0.12], [cx0 + colW * 0.95, cy0 + h * 0.02]], { ...ln, strokeLineDash: [10, 9], seed: seed + 50 })
       const px = cx0 + colW * 0.95, py = cy0 + h * 0.02
       rc.polygon([[px, py], [px + 30, py + 12], [px + 16, py + 18], [px + 12, py + 34]], { ...solid, seed: seed + 51 })
-      break
-    }
-    case 3: {
-      // A LinkedIn post in your voice, with the Approve key below.
-      const pw = w * 0.78, ph = h * 0.66
-      const x0 = X(-0.78), y0 = Y(-0.95)
-      rc.rectangle(x0, y0, pw, ph, { ...ln, seed })
-      rc.circle(x0 + 34, y0 + 32, 36, hatchA)
-      rc.line(x0 + 62, y0 + 26, x0 + pw * 0.55, y0 + 26, { ...thin, seed: seed + 1 })
-      rc.line(x0 + 62, y0 + 42, x0 + pw * 0.38, y0 + 42, { ...thin, seed: seed + 2 })
-      for (let k = 0; k < 3; k++) rc.line(x0 + 18, y0 + 72 + k * 18, x0 + pw - (k === 2 ? pw * 0.4 : 18), y0 + 72 + k * 18, { ...thin, seed: seed + 3 + k })
-      rc.rectangle(x0 + 18, y0 + 122, pw - 36, ph - 136, { ...hatchA, hachureGap: 14, seed: seed + 8 })
-      // Approve key, slightly offset like the landing's 3D key.
-      const kw = w * 0.56, kh = h * 0.24, kx = X(0.18) - kw / 2, ky = Y(0.5)
-      rc.rectangle(kx + 8, ky + 10, kw, kh, { ...solid, seed: seed + 9 })
-      rc.rectangle(kx, ky, kw, kh, { ...ln, fill: t.paper, fillStyle: 'solid', seed: seed + 10 })
-      label(pt ? 'Aprovar ✓' : 'Approve ✓', kx + kw / 2, ky + kh * 0.66, kh * 0.44)
       break
     }
     case 4: {
