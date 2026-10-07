@@ -63,6 +63,8 @@ export interface TemplateSpec {
   /** Octagonal frame around the QR (frameInArt: the artwork has it). The QR itself always prints dark on light so every phone reads it. */
   qr: { cx: number; cy: number; frame: number; chamfer: number; fill: string; stroke: string; panel: string; module: string; frameInArt?: boolean }
   url: TextSlot
+  /** Tag just under the QR, centred on it: NFC icon beside "or hold your phone to the logo on the chest". gap: from the QR frame; maxW: the text's width. */
+  nfc: { gap: number; maxW: number; size: number }
   /** Drawn when the artwork has no ornament of its own: line ◇ line under the title, rules beside the URL. */
   titleRule?: { cx: number; y: number; half: number }
   urlRules?: { gap: number; length: number }
@@ -100,6 +102,7 @@ const white: TemplateSpec = {
   start: { cx: 390, cy: 2070, maxW: 460, size: 36, dot: { x: 680, y: 2070 } },
   qr: { cx: 2183, cy: 2262, frame: 370, chamfer: 34, fill: '#E5E4DF', stroke: '#161616', panel: '#E5E4DF', module: '#161616' },
   url: { cx: 2172, baseline: 2675, maxW: 1150, size: 56, minSize: 34, tracking: 0.26 },
+  nfc: { gap: 18, maxW: 440, size: 28 },
 }
 
 // Same artwork as white, inverted by scripts/clean-template.mjs, so the layout is shared.
@@ -151,6 +154,7 @@ const color: TemplateSpec = {
   start: { cx: 390, cy: 2196, maxW: 460, size: 36, dot: null },
   qr: { cx: 2176, cy: 2435, frame: 388, chamfer: 32, fill: '#EBDDBE', stroke: '#3B3426', panel: '#EBDDBE', module: '#221F1D' },
   url: { cx: 2175, baseline: 2838, maxW: 1180, size: 60, minSize: 36, tracking: 0.22 },
+  nfc: { gap: 20, maxW: 440, size: 28 },
   urlRules: { gap: 66, length: 174 },
 }
 

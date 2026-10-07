@@ -75,6 +75,10 @@ export function LetterFields({ c, set }: { c: Client; set: (patch: Partial<Clien
         <Label>Legenda do QR</Label>
         <input className="field" value={text.qrCaption} onChange={(e) => edit('qrCaption', e.target.value)} />
       </div>
+      <div>
+        <Label>Legenda do NFC</Label>
+        <textarea className="field min-h-16 resize-y" value={text.nfcCaption} onChange={(e) => edit('nfcCaption', e.target.value)} />
+      </div>
     </section>
   )
 }

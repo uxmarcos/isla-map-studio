@@ -20,6 +20,7 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       'The map in this chest charts the route to {goal}. We would love to sail it with you. Scan the code to open your gift.',
     signoff: 'See you on board,\nThe Isla team',
     qrCaption: 'Scan to open your gift',
+    nfcCaption: 'Or hold your phone to the logo on the chest.',
   },
   pt: {
     eyebrow: 'Uma carta da Isla',
@@ -40,6 +41,7 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
       'O mapa neste baú traça a rota até transformar seu LinkedIn em pipeline\n\nQueremos navegar com vocês. Escaneie o código para abrir seu presente.',
     signoff: 'Até breve,\nTime Isla',
     qrCaption: 'Escaneie para abrir seu presente',
+    nfcCaption: 'Ou aproxime o celular da logo na frente do baú.',
   },
 }
 

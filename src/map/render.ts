@@ -23,10 +23,10 @@ export const loadMapFonts = () =>
 type Ctx = CanvasRenderingContext2D
 
 /** Fixed text printed on the map. */
-const COPY: Record<Lang, { titlePrefix: string; titleLast: string; path: string; visit: string; scan: string; fallback: string; here: string }> = {
-  en: { titlePrefix: 'THE', titleLast: 'TREASURE MAP', path: 'THE PATH TO', visit: 'VISIT', scan: 'SCAN TO OPEN YOUR GIFT', fallback: 'COMPANY', here: 'YOU ARE HERE' },
+const COPY: Record<Lang, { titlePrefix: string; titleLast: string; path: string; visit: string; scan: string; nfc: string; fallback: string; here: string }> = {
+  en: { titlePrefix: 'THE', titleLast: 'TREASURE MAP', path: 'THE PATH TO', visit: 'VISIT', scan: 'SCAN TO OPEN YOUR GIFT', nfc: 'OR HOLD YOUR PHONE TO THE LOGO ON THE CHEST', fallback: 'COMPANY', here: 'YOU ARE HERE' },
   // No article before the name: Portuguese would need "DA" or "DO" depending on the company.
-  pt: { titlePrefix: '', titleLast: 'MAPA DO TESOURO', path: 'O CAMINHO ATÉ', visit: 'ACESSE', scan: 'ESCANEIE PARA ABRIR SEU PRESENTE', fallback: 'EMPRESA', here: 'VOCÊ ESTÁ AQUI' },
+  pt: { titlePrefix: '', titleLast: 'MAPA DO TESOURO', path: 'O CAMINHO ATÉ', visit: 'ACESSE', scan: 'ESCANEIE PARA ABRIR SEU PRESENTE', nfc: 'OU APROXIME O CELULAR DA LOGO NA FRENTE DO BAÚ', fallback: 'EMPRESA', here: 'VOCÊ ESTÁ AQUI' },
 }
 
 const upper = (s: string) => s.trim().toLocaleUpperCase('pt-BR')
@@ -73,6 +73,7 @@ export function drawMap(
   drawCompassMark(ctx, t)
 
   drawQr(ctx, t, data.qrUrl)
+  drawNfc(ctx, t, copy.nfc)
   ctx.fillStyle = t.ink
   // The gift link is short (gift.isla.to/acme), so it is printed too; without it, only an invitation.
   const label = qrLabel(data.qrUrl)
@@ -294,6 +295,7 @@ interface TagBlock { text: string; font: string; size: number; tracking: number 
  * onto as few lines as fit maxW at its (readable) size; the frame grows to fit.
  * Returns the frame's box.
  */
+/** lead: room left of the text, for an icon. */
 function drawTag(ctx: Ctx, t: TemplateSpec, cx: number, top: number, blocks: TagBlock[], maxW: number, lead = 0) {
   const laid = blocks.map((b) => {
     const font = b.font.replace('{s}', String(b.size))
@@ -346,6 +348,52 @@ function drawDanger(ctx: Ctx, t: TemplateSpec, text: string, at: { cx: number; c
   const icon = size * 1.25
   const box = drawTag(ctx, t, at.cx, at.cy - probe / 2, [{ text: label, font: t.fonts.plaque, size, tracking: 0.06 }], maxW, icon + size * 0.5)
   drawWarning(ctx, t, box.x0 + box.padX * 0.8 + icon / 2, box.cy, icon)
+}
+
+/**
+ * The other way in: the logo on the chest is an NFC tag. A tag just under the QR, centred on it,
+ * with a phone-and-waves icon beside the text (two lines, usually).
+ */
+function drawNfc(ctx: Ctx, t: TemplateSpec, text: string) {
+  const { gap, maxW, size } = t.nfc
+  const icon = size * 2
+  const sans = t.fonts.url.replace(/^\d+/, '500')
+  const top = t.qr.cy + t.qr.frame / 2 + gap
+  // The icon is as wide as `icon`; air on both sides of it, inside the tag's padding.
+  const air = size * 0.35
+  const box = drawTag(ctx, t, t.qr.cx, top, [{ text, font: sans, size, tracking: 0.08 }], maxW, icon + air * 2)
+  drawNfcIcon(ctx, t.ink, box.x0 + box.padX + air + icon / 2, box.cy, icon)
+}
+
+/** A phone with three waves leaving its side: "hold your phone here". Outline only, in the given ink. */
+export function drawNfcIcon(ctx: Ctx, ink: string, cx: number, cy: number, size: number) {
+  const ph = size * 0.92, pw = ph * 0.52, r = pw * 0.18
+  const x0 = cx - size * 0.5, y0 = cy - ph / 2
+  ctx.save()
+  ctx.strokeStyle = ink
+  ctx.fillStyle = ink
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = size * 0.075
+  ctx.beginPath()
+  ctx.roundRect(x0, y0, pw, ph, r)
+  ctx.stroke()
+  // Speaker slit and home dot.
+  ctx.beginPath()
+  ctx.moveTo(x0 + pw * 0.34, y0 + ph * 0.1)
+  ctx.lineTo(x0 + pw * 0.66, y0 + ph * 0.1)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(x0 + pw / 2, y0 + ph * 0.9, size * 0.035, 0, Math.PI * 2)
+  ctx.fill()
+  // Waves, centred just past the phone's right edge.
+  const wx = x0 + pw + size * 0.04
+  for (const k of [0.17, 0.3, 0.43]) {
+    ctx.beginPath()
+    ctx.arc(wx, cy, size * k, -Math.PI * 0.28, Math.PI * 0.28)
+    ctx.stroke()
+  }
+  ctx.restore()
 }
 
 /** Warning sign: a rounded triangle with an exclamation mark, in the map's ink. */

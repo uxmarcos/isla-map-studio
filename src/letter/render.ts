@@ -178,6 +178,7 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
     sy += 50 * 1.5
   }
   qr(ctx, rc, t, d.qrUrl, qrX, qrY, qrSize)
+  nfcNote(ctx, rc, t, v(d.text.nfcCaption), qrX - 110, qrY, qrSize)
   const label = qrLabel(d.qrUrl)
   text(ctx, v(d.text.qrCaption).toLocaleUpperCase('pt-BR'), qrX + qrSize / 2, qrY + qrSize + (label ? 58 : 64), `700 24px ${SANS}`, t.ink, 'center', 0.2)
   if (label) text(ctx, label.toUpperCase(), qrX + qrSize / 2, qrY + qrSize + 98, `500 23px ${SANS}`, t.soft, 'center', 0.14)
@@ -415,6 +416,46 @@ function illustration(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: n
       label(PIPELINE[lang][3], x0 + cw / 2, y0 + ch * 0.9, 21)
     }
   }
+}
+
+/**
+ * The other way to open the gift: the logo on the chest is an NFC tag. A hand-drawn phone with
+ * waves over a short caption, in a column ending at `right`, centred on the QR's height.
+ */
+function nfcNote(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, caption: string, right: number, qrY: number, qrSize: number) {
+  // Wide enough for the default caption on one line; longer edits wrap.
+  const colW = 680
+  const cx = right - colW / 2
+  const icon = 120
+  const font = `500 28px ${SANS}`
+  const lh = 28 * 1.45
+  const lines = wrap(ctx, caption, font, colW, 0).slice(0, 4)
+  const h = icon + 44 + lines.length * lh
+  const top = qrY + (qrSize - h) / 2
+  nfcIcon(rc, t, cx, top + icon / 2, icon)
+  let y = top + icon + 44 + 28 * 0.75
+  for (const line of lines) {
+    text(ctx, line, cx, y, font, t.soft, 'center', 0)
+    y += lh
+  }
+}
+
+/** Same drawing as the map's drawNfcIcon, with rough.js strokes so it sits with the letter's other sketches. */
+function nfcIcon(rc: RoughCanvas, t: LetterSpec, cx: number, cy: number, size: number) {
+  const o: Options = { stroke: t.ink, strokeWidth: 3.5, roughness: 1.2, bowing: 1, seed: 88 }
+  const ph = size * 0.92, pw = ph * 0.52, r = pw * 0.18
+  const x0 = cx - size * 0.5, y0 = cy - ph / 2
+  rc.path(
+    `M ${x0 + r} ${y0} H ${x0 + pw - r} Q ${x0 + pw} ${y0} ${x0 + pw} ${y0 + r} V ${y0 + ph - r} Q ${x0 + pw} ${y0 + ph} ${x0 + pw - r} ${y0 + ph} H ${x0 + r} Q ${x0} ${y0 + ph} ${x0} ${y0 + ph - r} V ${y0 + r} Q ${x0} ${y0} ${x0 + r} ${y0} Z`,
+    o,
+  )
+  rc.line(x0 + pw * 0.34, y0 + ph * 0.1, x0 + pw * 0.66, y0 + ph * 0.1, { ...o, strokeWidth: 3, seed: 89 })
+  rc.circle(x0 + pw / 2, y0 + ph * 0.9, size * 0.07, { ...o, fill: t.ink, fillStyle: 'solid', strokeWidth: 2, seed: 90 })
+  const wx = x0 + pw + size * 0.04
+  ;[0.17, 0.3, 0.43].forEach((k, i) => {
+    const d = size * k * 2
+    rc.arc(wx, cy, d, d, -Math.PI * 0.28, Math.PI * 0.28, false, { ...o, seed: 91 + i })
+  })
 }
 
 function qr(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, url: string, x: number, y: number, size: number) {

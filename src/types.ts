@@ -27,6 +27,8 @@ export interface LetterText {
   closing: string
   signoff: string
   qrCaption: string
+  /** Beside the QR: the chest's logo is an NFC tag that opens the same gift. */
+  nfcCaption: string
 }
 
 export interface Dangers {
