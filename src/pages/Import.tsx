@@ -17,7 +17,7 @@ const COLUMNS: [string, string][] = [
   ['empresa', 'Nome da empresa, como vai impresso. Obrigatório.'],
   ['qr', `Link do presente copiado do /admin/gifts da Isla, completo (${QR_EXAMPLE}). Um por empresa, nunca repetido. Sem ele, o mapa é criado mas não exporta.`],
   ['meta', 'Meta final, no X do mapa: $10M ARR, R$ 5M em vendas. Obrigatório.'],
-  ['idioma', 'pt ou en. Vazio: en.'],
+  ['idioma', 'pt ou en. Vazio: pt.'],
   ['estilo', 'colorido, branco ou preto. Vazio: colorido.'],
   ['logo', 'Link https do logo em PNG, SVG, JPG ou WebP, ou o código SVG colado. Vazio: envie na conferência ou depois no editor.'],
 ]
