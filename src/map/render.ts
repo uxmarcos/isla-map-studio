@@ -53,8 +53,8 @@ export function drawMap(
   const copy = COPY[data.lang]
   drawHeader(ctx, t, logo)
   drawTitle(ctx, t, copy, upper(data.company) || copy.fallback)
-  // The subtitle names the treasure: the same text as the last plaque, by the X.
-  drawSubtitle(ctx, t, `${copy.path} ${upper(data.destination)}`)
+  // The subtitle names the treasure: the same text as the last plaque, by the X, unless pathTo rewords it.
+  drawSubtitle(ctx, t, `${copy.path} ${upper(data.pathTo.trim() || data.destination)}`)
   if (t.titleRule) drawTitleRule(ctx, t, t.titleRule)
 
   const labels = [...data.stages.slice(0, 5), data.destination]

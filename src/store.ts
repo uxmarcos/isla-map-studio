@@ -240,6 +240,8 @@ export function uniqueSlug(base: string, exceptId?: string) {
 
 /** The goal every new map starts with, printed at the X. */
 export const DEFAULT_GOAL = 'Transforme seu LinkedIn em pipeline'
+/** The default goal is an imperative, which doesn't read after "O caminho até": the subtitle uses this instead. */
+const DEFAULT_PATH_TO = 'Transformar seu LinkedIn em pipeline'
 
 /** A blank map, in Portuguese, not saved until saveClient is called. */
 export function newClient(): Client {
@@ -364,6 +366,7 @@ export function toMapData(c: Client): MapData {
     start: c.start ?? '',
     dangers: migrateDangers(c.dangers, c.lang ?? 'en'),
     destination: c.destination,
+    pathTo: c.destination.trim() === DEFAULT_GOAL ? DEFAULT_PATH_TO : c.pathTo?.trim() ?? '',
     qrUrl: normalizeQrUrl(c.qrUrl),
   }
 }

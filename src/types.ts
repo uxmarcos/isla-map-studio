@@ -57,6 +57,8 @@ export interface Client {
   dangers: Dangers
   /** Last plaque, next to the X. */
   destination: string
+  /** Subtitle after "The path to" / "O caminho até", when it must read differently from the X (e.g. "Transformar…"). Empty uses destination. */
+  pathTo?: string
   logo: string | null // PNG data URL, downscaled (in memory; the database keeps it in Storage at logoPath)
   /** Storage path of the logo in the maps-logos bucket (database mode). */
   logoPath?: string | null
@@ -79,8 +81,10 @@ export interface MapData {
   stageNotes: string[]
   start: string
   dangers: Dangers
-  /** Last plaque and the subtitle ("The path to …"). */
+  /** Last plaque, and the subtitle unless pathTo is set. */
   destination: string
+  /** Subtitle after "The path to" / "O caminho até"; empty uses destination. */
+  pathTo: string
   /** Encoded in the QR exactly as given; empty until it is pasted (exports are blocked then). */
   qrUrl: string
 }

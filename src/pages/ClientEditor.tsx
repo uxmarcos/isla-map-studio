@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  DEFAULT_DANGERS, DEFAULT_NOTES, deleteClient, getClient, mapFrom, newClient, saveClient, uniqueSlug, useSettings,
+  DEFAULT_DANGERS, DEFAULT_NOTES, deleteClient, getClient, mapFrom, newClient, saveClient, toMapData, uniqueSlug, useSettings,
 } from '../store'
 import {
   LANG_LABEL, LANG_ORDER, STATUS_LABEL, STATUS_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type LogoMode, type MapStyle, type Status,
@@ -308,11 +308,15 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               </div>
             ))}
             <div className="pt-2">
-              <Label hint={`${c.lang === 'pt' ? 'O caminho até' : 'The path to'} ${c.destination.trim() || '…'}`}>Meta final, no X do tesouro</Label>
+              <Label hint={`${c.lang === 'pt' ? 'O caminho até' : 'The path to'} ${toMapData(c).pathTo || c.destination.trim() || '…'}`}>Meta final, no X do tesouro</Label>
               <div className="flex items-center gap-3">
                 <span className="w-5 shrink-0 text-center text-[15px] text-porcelain">✕</span>
                 <input className="field" value={c.destination} placeholder="$10M ARR" onChange={(e) => setDestination(e.target.value)} />
               </div>
+            </div>
+            <div>
+              <Label hint={c.lang === 'pt' ? 'Vazio usa a meta final.' : 'Empty uses the final goal.'}>{c.lang === 'pt' ? 'Texto depois de "O caminho até"' : 'Text after "The path to"'}</Label>
+              <input className="field" value={c.pathTo ?? ''} placeholder={toMapData(c).pathTo || c.destination} onChange={(e) => set({ pathTo: e.target.value })} />
             </div>
           </section>
 
