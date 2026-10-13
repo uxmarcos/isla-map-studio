@@ -150,27 +150,36 @@ function remember(id: string, logoPath: string | null) {
   clients = clients.map((x) => (x.id === id ? { ...x, logoPath } : x))
 }
 
-/** Bumped when a write starts and when it ends, so a reload that overlaps one doesn't undo it. */
+/**
+ * Writes in flight, and a count bumped as each starts and ends: a reload that overlaps a write
+ * (e.g. closing the file chooser refocuses the tab mid-attach) would bring back the old row.
+ */
+let pending = 0
 let writes = 0
 async function tracked<T>(work: () => Promise<T>): Promise<T> {
+  pending++
   writes++
   try {
     return await work()
   } finally {
+    pending--
     writes++
   }
 }
 
-async function load() {
+/** Until isla-v2's maps_shipping_labels migration is applied the column is missing: maps still load. */
+async function selectMaps() {
+  const maps = await supabase!.from('clients').select('id, data, status, qr_url, shipping_label')
+  return maps.error?.code === '42703' ? supabase!.from('clients').select('id, data, status, qr_url') : maps
+}
+
+/** keep: the first load after sign-in, which must land even if a write overlaps it. */
+async function load({ keep = false } = {}) {
   const seen = writes
-  const [maps, sett] = await Promise.all([
-    supabase!.from('clients').select('id, data, status, qr_url, shipping_label'),
-    supabase!.from('settings').select('data').eq('id', 1).maybeSingle(),
-  ])
+  const [maps, sett] = await Promise.all([selectMaps(), supabase!.from('settings').select('data').eq('id', 1).maybeSingle()])
   if (maps.error || sett.error) throw maps.error ?? sett.error
   const loaded = (await Promise.all((maps.data as Row[]).map(fromRow))).sort(byNewest)
-  // E.g. closing the file chooser refocuses the tab: this reload may predate the label just attached.
-  if (seen !== writes) return
+  if (!keep && (pending || seen !== writes)) return
   clients = loaded
   settings = migrateSettings((sett.data?.data as Partial<Settings>) ?? {})
 }
@@ -215,7 +224,7 @@ export async function connect() {
     return emit()
   }
   try {
-    await load()
+    await load({ keep: true })
     lastLoad = Date.now()
     sync = { state: 'ready' }
   } catch (e) {
@@ -302,7 +311,7 @@ export async function saveClient(c: Client) {
   clients = existing ? clients.map((x) => (x.id === c.id ? saved : x)) : [saved, ...clients]
   emit()
   if (!supabase) return persistLocal()
-  await tracked(async () => {
+  const write = tracked(async () => {
     try {
       const r = await toRow(saved)
       const { error } = await supabase!.from('clients').upsert(existing ? rowOnly(r) : newRow(r))
@@ -312,7 +321,13 @@ export async function saveClient(c: Client) {
       fail(e)
     }
   })
+  saving.set(saved.id, write)
+  await write
+  if (saving.get(saved.id) === write) saving.delete(saved.id)
 }
+
+/** Saves still on their way to the database, by map: a label attached right after Save waits for the row. */
+const saving = new Map<string, Promise<void>>()
 
 /** Adds many new maps at once (batch import): one write to the database. */
 export async function saveClients(list: Client[]) {
@@ -351,10 +366,11 @@ async function setShippingLabel(id: string, shippingLabel: ShippingLabel | null)
   put(shippingLabel)
   await tracked(async () => {
     try {
+      await saving.get(id)
       const { data, error } = await supabase!.from('clients').update({ shipping_label: shippingLabel }).eq('id', id).select('id')
       if (error) throw error
-      // A map saved a moment ago may not be in the database yet.
-      if (!data?.length) throw new Error('O mapa ainda está sendo salvo. Tente de novo em instantes.')
+      // Its save failed, or a teammate deleted it.
+      if (!data?.length) throw new Error('Este mapa não está no banco. Salve o mapa e tente de novo.')
     } catch (e) {
       put(before.shippingLabel)
       throw e
@@ -377,6 +393,7 @@ export function attachShippingLabel(id: string, file: File) {
   if (!sb) return Promise.reject(new Error('Etiquetas precisam do banco da equipe.'))
   return serial(id, async () => {
     if (!getClient(id)) throw new Error('Salve o mapa antes de anexar a etiqueta.')
+    const previous = getClient(id)?.shippingLabel?.path
     const label = await uploadShippingLabel(sb, id, file)
     try {
       await setShippingLabel(id, label)
@@ -385,7 +402,8 @@ export function attachShippingLabel(id: string, file: File) {
       if (label.path !== getClient(id)?.shippingLabel?.path) await sb.storage.from(SHIPPING_LABEL_BUCKET).remove([label.path]).catch(() => {})
       throw e
     }
-    await removeShippingLabels(sb, id, label.path).catch(() => {})
+    // Only the file this map pointed at: a teammate's upload in the same folder may be on its way in.
+    if (previous && previous !== label.path) await sb.storage.from(SHIPPING_LABEL_BUCKET).remove([previous]).catch(() => {})
   })
 }
 
@@ -394,8 +412,9 @@ export function removeShippingLabel(id: string) {
   const sb = supabase
   if (!sb) return Promise.reject(new Error('Etiquetas precisam do banco da equipe.'))
   return serial(id, async () => {
+    const previous = getClient(id)?.shippingLabel?.path
     await setShippingLabel(id, null)
-    await removeShippingLabels(sb, id).catch(() => {})
+    if (previous) await sb.storage.from(SHIPPING_LABEL_BUCKET).remove([previous]).catch(() => {})
   })
 }
 
@@ -419,7 +438,8 @@ export async function deleteClient(id: string) {
   // Undo re-saves the map, logo included (it is still in memory), so the files can go now.
   deletedIds.add(id)
   removeLogos(supabase, id).catch(() => {})
-  // The label PDF isn't in memory, so it waits out the Undo toast (8 s) before going.
+  // The label PDF isn't in memory, so it waits out the Undo toast (8 s) before going. Closing the
+  // tab before then leaves the file in the bucket; a sweep could delete a teammate's new upload.
   setTimeout(() => {
     if (!getClient(id)) removeShippingLabels(supabase!, id).catch(() => {})
   }, 15_000)

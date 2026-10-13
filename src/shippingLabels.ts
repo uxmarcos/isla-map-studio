@@ -84,7 +84,7 @@ export async function downloadShippingLabelsZip(sb: Sb, all: Client[], onProgres
       try {
         zip.file(names[i], await fetchShippingLabel(sb, list[i].shippingLabel!.path))
       } catch {
-        failed.push(list[i].company || 'Sem nome')
+        failed.push(`${list[i].company || 'Sem nome'} (${names[i]})`) // names are unique; companies repeat
       }
       onProgress?.(++done)
     }
