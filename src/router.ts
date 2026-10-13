@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 export type Route =
-  | { name: 'list' } | { name: 'settings' } | { name: 'import' } | { name: 'clients' }
+  | { name: 'list' } | { name: 'settings' } | { name: 'import' } | { name: 'clients' } | { name: 'labels' }
   /** from: a map whose client data the new map starts with. */
   | { name: 'new'; from?: string }
   | { name: 'client'; id: string }
@@ -15,6 +15,7 @@ function parse(hash: string): Route {
   if (hash.startsWith('#/new')) return { name: 'new' }
   if (hash.startsWith('#/clients')) return { name: 'clients' }
   if (hash.startsWith('#/import')) return { name: 'import' }
+  if (hash.startsWith('#/labels')) return { name: 'labels' }
   return { name: 'list' }
 }
 

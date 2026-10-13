@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  DEFAULT_DANGERS, DEFAULT_NOTES, deleteClient, getClient, mapFrom, newClient, saveClient, toMapData, uniqueSlug, useSettings,
+  DEFAULT_DANGERS, DEFAULT_NOTES, deleteClient, getClient, mapFrom, newClient, saveClient, shippingLabelsEnabled, toMapData, uniqueSlug, useClients,
+  useSettings,
 } from '../store'
 import {
   LANG_LABEL, LANG_ORDER, STATUS_LABEL, STATUS_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type LogoMode, type MapStyle, type Status,
@@ -15,6 +16,7 @@ import { Button, Label, StatusDot } from '../ui/kit'
 import { navigate, setLeaveGuard } from '../router'
 import { toast } from '../ui/toast'
 import { checkQrUrl, normalizeQrUrl, QR_EXAMPLE } from '../qr'
+import { labelMeta, useShippingLabelActions } from '../ui/shippingLabelActions'
 
 const LOGO_MODES: { id: LogoMode; label: string }[] = [
   { id: 'original', label: 'Original' },
@@ -348,6 +350,8 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
             <LetterFields c={c} set={set} />
           )}
 
+          <ShippingLabelSection id={c.id} />
+
           <section className="hairline-t space-y-3 pt-7">
             <p className="eyebrow">Notas internas</p>
             <textarea
@@ -434,6 +438,68 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
       </div>
       {saved && createPortal(<SavedDialog client={c} onStatus={(status) => commit({ ...c, status })} onKeepEditing={keepEditing} />, document.body)}
     </main>
+  )
+}
+
+/**
+ * The box's shipping label. Saved on its own as soon as it is attached (not with the form), so it
+ * reads the stored map: a map that was never saved has nowhere to attach it yet.
+ */
+function ShippingLabelSection({ id }: { id: string }) {
+  const stored = useClients().find((x) => x.id === id)
+  const actions = useShippingLabelActions()
+  const busy = actions.busy[id]
+  const label = stored?.shippingLabel
+  return (
+    <section className="hairline-t space-y-4 pt-7">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="eyebrow">Etiqueta de envio</p>
+        <a href="#/labels" className="text-[12px] text-grey-2 transition-colors hover:text-porcelain">
+          Todas as etiquetas
+        </a>
+      </div>
+      {!shippingLabelsEnabled ? (
+        <p className="text-[13px] text-grey-2">Etiquetas ficam no banco da equipe; não estão disponíveis no modo só do navegador.</p>
+      ) : !stored ? (
+        <p className="text-[13px] text-grey-2">Salve o mapa para anexar o PDF da etiqueta.</p>
+      ) : (
+        <div
+          className="flex flex-col gap-3 rounded-2xl border border-dashed border-line-strong bg-ink-3 p-4"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            actions.attach(id, e.dataTransfer.files[0])
+          }}
+        >
+          <div className="min-w-0 text-[13px]">
+            {label ? (
+              <>
+                <p className="truncate text-porcelain" title={label.name}>{label.name}</p>
+                <p className="truncate text-[12px] text-grey-2">{labelMeta(label)}</p>
+              </>
+            ) : (
+              <p className="text-grey-1">{busy === 'upload' ? 'Enviando…' : 'Nenhuma etiqueta. Arraste o PDF aqui ou escolha o arquivo.'}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {label && (
+              <Button type="button" size="sm" variant="ghost" disabled={!!busy} onClick={() => actions.download(stored)}>
+                {busy === 'download' ? 'Baixando…' : 'Baixar'}
+              </Button>
+            )}
+            <Button type="button" size="sm" variant={label ? 'quiet' : 'ghost'} disabled={!!busy} onClick={() => actions.pick(stored)}>
+              {busy === 'upload' ? 'Enviando…' : label ? 'Trocar' : 'Anexar PDF'}
+            </Button>
+            {label && (
+              <Button type="button" size="sm" variant="quiet" className="hover:!text-[#ff8a7a]" disabled={!!busy} onClick={() => actions.remove(stored)}>
+                {busy === 'remove' ? 'Removendo…' : 'Remover'}
+              </Button>
+            )}
+          </div>
+          {actions.input}
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -8,6 +8,7 @@ import { drawMap, loadMapFonts, loadTemplate } from './render'
 import { drawLetter, LETTER_H, LETTER_W, loadLetterFonts, loadPaper } from '../letter/render'
 import { letterLogo, toLetterData } from '../letter/data'
 import { checkQrUrl } from '../qr'
+import { download } from '../download'
 
 /** A map printed without its gift link loses the gift: never export one. */
 function assertQr(c: Client) {
@@ -90,14 +91,6 @@ async function pdfBlob(c: Client, o: PdfOptions = {}): Promise<Blob> {
   const p = placement(PRINT_MM.w, PRINT_MM.h, o.margin)
   pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', p.x, p.y, p.w, p.h, undefined, 'NONE')
   return pdf.output('blob')
-}
-
-function download(blob: Blob, name: string) {
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = name
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000)
 }
 
 export async function downloadPng(c: Client) {
