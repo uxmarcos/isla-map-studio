@@ -25,6 +25,7 @@ export function Nav({ route }: { route: Route }) {
           <span className="hidden h-5 w-px bg-line sm:block" />
           {link('#/', 'Mapas', route.name === 'list' || route.name === 'client' || route.name === 'new')}
           {link('#/clients', 'Clientes', route.name === 'clients')}
+          {link('#/labels', 'Etiquetas', route.name === 'labels')}
           {link('#/settings', 'Configurações', route.name === 'settings')}
         </div>
         {/* Hidden while creating a map: you are already making one. */}
@@ -32,6 +33,9 @@ export function Nav({ route }: { route: Route }) {
           <div className="flex h-12 items-center gap-2">
             <a href="#/clients" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
               Clientes
+            </a>
+            <a href="#/labels" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
+              Etiquetas
             </a>
             <a href="#/settings" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
               Ajustes

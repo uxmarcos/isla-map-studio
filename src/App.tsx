@@ -6,6 +6,7 @@ import { ClientEditor } from './pages/ClientEditor'
 import { Settings } from './pages/Settings'
 import { Import } from './pages/Import'
 import { Clients } from './pages/Clients'
+import { Labels } from './pages/Labels'
 import { Denied, Login, missingSetup, Setup, SyncError } from './pages/Login'
 import { Toaster } from './ui/toast'
 import { REQUIRE_LOGIN, useAuthReady, useSession } from './supabase'
@@ -45,6 +46,8 @@ export default function App() {
           <Import />
         ) : route.name === 'clients' ? (
           <Clients />
+        ) : route.name === 'labels' ? (
+          <Labels />
         ) : (
           <ClientList />
         )}

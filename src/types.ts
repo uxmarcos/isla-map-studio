@@ -36,6 +36,16 @@ export interface Dangers {
   whirlpool: string
 }
 
+/** The shipping label's PDF, attached as-is (nothing is read from it); the file lives in Storage. */
+export interface ShippingLabel {
+  /** Storage path in the maps-shipping-labels bucket. */
+  path: string
+  /** The file's name when it was attached, to recognise it in the list. */
+  name: string
+  size: number
+  uploadedAt: number
+}
+
 export interface Client {
   id: string
   /** Links maps of the same client: set on maps started from another one ("Novo mapa" in Clientes). */
@@ -67,6 +77,8 @@ export interface Client {
   logoMode: LogoMode
   /** Edited letter text; anything missing falls back to the default for the map's language. */
   letter?: Partial<LetterText>
+  /** One per map (one map = one box). Changed only by attachShippingLabel/removeShippingLabel, never by the editor's Save. */
+  shippingLabel?: ShippingLabel | null
   status: Status
   notes: string
   createdAt: number

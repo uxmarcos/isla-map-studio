@@ -1,12 +1,13 @@
 import { useSyncExternalStore } from 'react'
-import type { Client, Dangers, Lang, MapData } from './types'
+import type { Client, Dangers, Lang, MapData, ShippingLabel } from './types'
 import { supabase } from './supabase'
 import { downloadLogo, logoPathFor, removeLogos, uploadLogo } from './logos'
 import { toast } from './ui/toast'
 import { normalizeQrUrl } from './qr'
+import { downloadShippingLabel, downloadShippingLabelsZip, removeShippingLabels, SHIPPING_LABEL_BUCKET, uploadShippingLabel } from './shippingLabels'
 
 // Maps and settings live in Supabase (schema maps: tables clients and settings, logos in the
-// maps-logos bucket), shared by Isla's super admins. The schema is a migration in isla-app.
+// maps-logos bucket, shipping label PDFs in maps-shipping-labels), shared by Isla's super admins. The schema is a migration in isla-app.
 // These keys are the old browser-only storage, kept for importing.
 const KEY = 'isla-map-clients:v1'
 const SETTINGS_KEY = 'isla-map-settings:v1'
@@ -115,12 +116,14 @@ interface Row {
   data: Client
   status: Client['status']
   qr_url: string | null
+  /** Its own column, written only by setShippingLabel: saving the rest of the map never touches it. */
+  shipping_label?: ShippingLabel | null
 }
 
 /** A database row back into a map: status and QR come from their columns, the logo from Storage. */
 async function fromRow(r: Row): Promise<Client> {
   const logo = r.data.logoPath ? await downloadLogo(supabase!, r.data.logoPath) : null
-  return migrateClient({ ...r.data, status: r.status, qrUrl: r.qr_url ?? '', logo })
+  return migrateClient({ ...r.data, status: r.status, qrUrl: r.qr_url ?? '', shippingLabel: r.shipping_label ?? null, logo })
 }
 
 /** A map into a row: the logo goes to Storage (uploaded only when it changed), the row keeps its path. */
@@ -132,26 +135,52 @@ async function toRow(c: Client): Promise<Row & { logoPath: string | null }> {
     await uploadLogo(supabase!, logoPath, c.logo)
     removeLogos(supabase!, c.id, logoPath).catch(() => {}) // the old file, if the logo changed
   } else if (!c.logo && c.logoPath) removeLogos(supabase!, c.id).catch(() => {})
-  const data = { ...c, logo: null, logoPath }
-  return { id: c.id, data, status: c.status, qr_url: normalizeQrUrl(c.qrUrl) || null, logoPath }
+  const data = { ...c, logo: null, logoPath, shippingLabel: undefined }
+  return { id: c.id, data, status: c.status, qr_url: normalizeQrUrl(c.qrUrl) || null, shipping_label: c.shippingLabel ?? null, logoPath }
 }
 
 const deletedIds = new Set<string>()
 
 const rowOnly = ({ id, data, status, qr_url }: Row) => ({ id, data, status, qr_url })
+/** For rows the database doesn't have yet (new maps, Undo of a delete): they bring their label along. */
+const newRow = (r: Row) => ({ ...rowOnly(r), shipping_label: r.shipping_label ?? null })
 
 /** Keeps the path of what was uploaded, so the next save doesn't upload the same logo again. */
 function remember(id: string, logoPath: string | null) {
   clients = clients.map((x) => (x.id === id ? { ...x, logoPath } : x))
 }
 
-async function load() {
-  const [maps, sett] = await Promise.all([
-    supabase!.from('clients').select('id, data, status, qr_url'),
-    supabase!.from('settings').select('data').eq('id', 1).maybeSingle(),
-  ])
+/**
+ * Writes in flight, and a count bumped as each starts and ends: a reload that overlaps a write
+ * (e.g. closing the file chooser refocuses the tab mid-attach) would bring back the old row.
+ */
+let pending = 0
+let writes = 0
+async function tracked<T>(work: () => Promise<T>): Promise<T> {
+  pending++
+  writes++
+  try {
+    return await work()
+  } finally {
+    pending--
+    writes++
+  }
+}
+
+/** Until isla-v2's maps_shipping_labels migration is applied the column is missing: maps still load. */
+async function selectMaps() {
+  const maps = await supabase!.from('clients').select('id, data, status, qr_url, shipping_label')
+  return maps.error?.code === '42703' ? supabase!.from('clients').select('id, data, status, qr_url') : maps
+}
+
+/** keep: the first load after sign-in, which must land even if a write overlaps it. */
+async function load({ keep = false } = {}) {
+  const seen = writes
+  const [maps, sett] = await Promise.all([selectMaps(), supabase!.from('settings').select('data').eq('id', 1).maybeSingle()])
   if (maps.error || sett.error) throw maps.error ?? sett.error
-  clients = (await Promise.all((maps.data as Row[]).map(fromRow))).sort(byNewest)
+  const loaded = (await Promise.all((maps.data as Row[]).map(fromRow))).sort(byNewest)
+  if (!keep && (pending || seen !== writes)) return
+  clients = loaded
   settings = migrateSettings((sett.data?.data as Partial<Settings>) ?? {})
 }
 
@@ -195,7 +224,7 @@ export async function connect() {
     return emit()
   }
   try {
-    await load()
+    await load({ keep: true })
     lastLoad = Date.now()
     sync = { state: 'ready' }
   } catch (e) {
@@ -267,27 +296,38 @@ export function newClient(): Client {
   }
 }
 
-/** A new map for the same client: everything personalised is kept (name, logo, goal, gift link, texts); status starts over. */
+/** A new map for the same client: everything personalised is kept (name, logo, goal, gift link, texts); status and shipping label start over. */
 export function mapFrom(c: Client): Client {
   const fresh = newClient()
-  return { ...structuredClone(c), id: fresh.id, clientId: c.clientId ?? c.id, status: 'draft', notes: '', createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
+  return { ...structuredClone(c), id: fresh.id, clientId: c.clientId ?? c.id, status: 'draft', notes: '', shippingLabel: null, createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
 }
 
 /** Inserts or replaces a map: shown right away, then written to the database. */
 export async function saveClient(c: Client) {
-  const saved = { ...c, slug: c.slug || uniqueSlug(c.company, c.id), qrUrl: normalizeQrUrl(c.qrUrl), updatedAt: Date.now() }
-  clients = clients.some((x) => x.id === c.id) ? clients.map((x) => (x.id === c.id ? saved : x)) : [saved, ...clients]
+  // The label is attached outside the editor's form: a stale copy in the form must not undo it.
+  const existing = getClient(c.id)
+  const shippingLabel = existing ? existing.shippingLabel : c.shippingLabel
+  const saved = { ...c, shippingLabel, slug: c.slug || uniqueSlug(c.company, c.id), qrUrl: normalizeQrUrl(c.qrUrl), updatedAt: Date.now() }
+  clients = existing ? clients.map((x) => (x.id === c.id ? saved : x)) : [saved, ...clients]
   emit()
   if (!supabase) return persistLocal()
-  try {
-    const r = await toRow(saved)
-    const { error } = await supabase.from('clients').upsert(rowOnly(r))
-    if (error) throw error
-    remember(saved.id, r.logoPath)
-  } catch (e) {
-    fail(e)
-  }
+  const write = tracked(async () => {
+    try {
+      const r = await toRow(saved)
+      const { error } = await supabase!.from('clients').upsert(existing ? rowOnly(r) : newRow(r))
+      if (error) throw error
+      remember(saved.id, r.logoPath)
+    } catch (e) {
+      fail(e)
+    }
+  })
+  saving.set(saved.id, write)
+  await write
+  if (saving.get(saved.id) === write) saving.delete(saved.id)
 }
+
+/** Saves still on their way to the database, by map: a label attached right after Save waits for the row. */
+const saving = new Map<string, Promise<void>>()
 
 /** Adds many new maps at once (batch import): one write to the database. */
 export async function saveClients(list: Client[]) {
@@ -297,25 +337,112 @@ export async function saveClients(list: Client[]) {
   clients = [...saved, ...clients].sort(byNewest)
   emit()
   if (!supabase) return persistLocal()
-  try {
-    const rows = await Promise.all(saved.map(toRow))
-    const { error } = await supabase.from('clients').upsert(rows.map(rowOnly))
-    if (error) throw error
-    rows.forEach((r) => remember(r.id, r.logoPath))
-  } catch (e) {
-    fail(e)
+  await tracked(async () => {
+    try {
+      const rows = await Promise.all(saved.map(toRow))
+      const { error } = await supabase!.from('clients').upsert(rows.map(newRow))
+      if (error) throw error
+      rows.forEach((r) => remember(r.id, r.logoPath))
+    } catch (e) {
+      fail(e)
+    }
+  })
+}
+
+/** Shipping labels are PDFs in Storage: too big for the browser-only mode. */
+export const shippingLabelsEnabled = !!supabase
+
+/**
+ * Sets a saved map's label: only its column is written, so a teammate's edits to the map aren't
+ * undone, nor theirs to the label by a later Save here. On failure memory goes back and it throws.
+ */
+async function setShippingLabel(id: string, shippingLabel: ShippingLabel | null) {
+  const before = getClient(id)
+  if (!before) throw new Error('Salve o mapa antes de anexar a etiqueta.')
+  const put = (l: ShippingLabel | null | undefined) => {
+    clients = clients.map((x) => (x.id === id ? { ...x, shippingLabel: l } : x))
+    emit()
   }
+  put(shippingLabel)
+  await tracked(async () => {
+    try {
+      await saving.get(id)
+      const { data, error } = await supabase!.from('clients').update({ shipping_label: shippingLabel }).eq('id', id).select('id')
+      if (error) throw error
+      // Its save failed, or a teammate deleted it.
+      if (!data?.length) throw new Error('Este mapa não está no banco. Salve o mapa e tente de novo.')
+    } catch (e) {
+      put(before.shippingLabel)
+      throw e
+    }
+  })
+}
+
+/** One label change at a time per map, cleanup included, so one change never deletes the file of the next. */
+const labelQueue = new Map<string, Promise<unknown>>()
+function serial<T>(id: string, work: () => Promise<T>): Promise<T> {
+  const next = (labelQueue.get(id) ?? Promise.resolve()).catch(() => {}).then(work)
+  labelQueue.set(id, next)
+  next.catch(() => {}).finally(() => labelQueue.get(id) === next && labelQueue.delete(id))
+  return next
+}
+
+/** Uploads the PDF and attaches it to the map, replacing (and deleting) the previous label. */
+export function attachShippingLabel(id: string, file: File) {
+  const sb = supabase
+  if (!sb) return Promise.reject(new Error('Etiquetas precisam do banco da equipe.'))
+  return serial(id, async () => {
+    if (!getClient(id)) throw new Error('Salve o mapa antes de anexar a etiqueta.')
+    const previous = getClient(id)?.shippingLabel?.path
+    const label = await uploadShippingLabel(sb, id, file)
+    try {
+      await setShippingLabel(id, label)
+    } catch (e) {
+      // The map still points at the old file: drop the new one unless it is the same content.
+      if (label.path !== getClient(id)?.shippingLabel?.path) await sb.storage.from(SHIPPING_LABEL_BUCKET).remove([label.path]).catch(() => {})
+      throw e
+    }
+    // Only the file this map pointed at: a teammate's upload in the same folder may be on its way in.
+    if (previous && previous !== label.path) await sb.storage.from(SHIPPING_LABEL_BUCKET).remove([previous]).catch(() => {})
+  })
+}
+
+/** Detaches the label first, then deletes its file, so a map never points at a missing PDF. */
+export function removeShippingLabel(id: string) {
+  const sb = supabase
+  if (!sb) return Promise.reject(new Error('Etiquetas precisam do banco da equipe.'))
+  return serial(id, async () => {
+    const previous = getClient(id)?.shippingLabel?.path
+    await setShippingLabel(id, null)
+    if (previous) await sb.storage.from(SHIPPING_LABEL_BUCKET).remove([previous]).catch(() => {})
+  })
+}
+
+export async function downloadLabel(c: Client) {
+  if (!supabase) throw new Error('Etiquetas precisam do banco da equipe.')
+  await downloadShippingLabel(supabase, c)
+}
+
+/** Returns the names of the maps whose label couldn't be downloaded. */
+export async function downloadLabelsZip(list: Client[], onProgress?: (done: number) => void) {
+  if (!supabase) throw new Error('Etiquetas precisam do banco da equipe.')
+  return downloadShippingLabelsZip(supabase, list, onProgress)
 }
 
 export async function deleteClient(id: string) {
   clients = clients.filter((c) => c.id !== id)
   emit()
   if (!supabase) return persistLocal()
-  const { error } = await supabase.from('clients').delete().eq('id', id)
+  const { error } = await tracked(async () => supabase!.from('clients').delete().eq('id', id))
   if (error) return fail(error)
   // Undo re-saves the map, logo included (it is still in memory), so the files can go now.
   deletedIds.add(id)
   removeLogos(supabase, id).catch(() => {})
+  // The label PDF isn't in memory, so it waits out the Undo toast (8 s) before going. Closing the
+  // tab before then leaves the file in the bucket; a sweep could delete a teammate's new upload.
+  setTimeout(() => {
+    if (!getClient(id)) removeShippingLabels(supabase!, id).catch(() => {})
+  }, 15_000)
 }
 
 let settingsTimer: ReturnType<typeof setTimeout> | undefined
