@@ -1,4 +1,4 @@
-import type { Client } from '../types'
+import { kindOf, type Client } from '../types'
 import { toMapData } from '../store'
 import { processLogo } from '../map/logo'
 import { letterText } from './copy'
@@ -15,7 +15,7 @@ export function letterLogo(c: Client): Promise<HTMLCanvasElement | null> {
   return logoCache.get(key)!
 }
 
-/** Everything the letter needs, taken from the map: company, logo, goal (the X) and the QR. */
+/** Everything the letter needs: company, logo, goal (the map's X, the client's goal on a coin) and the QR. */
 export function toLetterData(c: Client, logo: HTMLCanvasElement | null): LetterData {
-  return { lang: c.lang, logo, text: letterText(c.lang, c.letter), company: c.company, goal: c.destination, qrUrl: toMapData(c).qrUrl }
+  return { lang: c.lang, logo, text: letterText(kindOf(c), c.lang, c.letter), company: c.company, goal: c.destination, qrUrl: toMapData(c).qrUrl }
 }

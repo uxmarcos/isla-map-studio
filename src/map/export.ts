@@ -101,17 +101,21 @@ export async function downloadPdf(c: Client, o: PdfOptions = {}) {
   download(await pdfBlob(c, o), `${fileBase(c)}${o.margin ? '-margem' : ''}.pdf`)
 }
 
-/** Maps without a valid gift link (missing, old or malformed) are left out; returns their names. */
-export async function downloadZip(all: Client[], onProgress?: (done: number) => void): Promise<string[]> {
+/**
+ * Pieces without a valid gift link (missing, old or malformed) are left out; returns their names.
+ * letterOnly: the coin track, which has no map to print.
+ */
+export async function downloadZip(all: Client[], onProgress?: (done: number) => void, letterOnly = false): Promise<string[]> {
   const skipped = all.filter((c) => !checkQrUrl(c.qrUrl).ok).map((c) => c.company || 'Sem nome')
   const list = all.filter((c) => checkQrUrl(c.qrUrl).ok)
   if (!list.length) return skipped
   const zip = new JSZip()
   for (let i = 0; i < list.length; i++) {
-    zip.file(`${fileBase(list[i])}.pdf`, await pdfBlob(list[i]))
+    if (!letterOnly) zip.file(`${fileBase(list[i])}.pdf`, await pdfBlob(list[i]))
     zip.file(`${letterBase(list[i])}.pdf`, await letterPdfBlob(list[i]))
     onProgress?.(i + 1)
   }
-  download(await zip.generateAsync({ type: 'blob' }), `isla-treasure-maps-${new Date().toISOString().slice(0, 10)}.zip`)
+  const name = letterOnly ? 'isla-trilha-moeda' : 'isla-treasure-maps'
+  download(await zip.generateAsync({ type: 'blob' }), `${name}-${new Date().toISOString().slice(0, 10)}.zip`)
   return skipped
 }

@@ -1,7 +1,7 @@
-import type { Lang, LetterText } from '../types'
+import type { Kind, Lang, LetterText } from '../types'
 
-/** Default letter, per language. {company} and {goal} are replaced when drawing. */
-export const DEFAULT_LETTER: Record<Lang, LetterText> = {
+/** The map's letter, per language. {company} and {goal} are replaced when drawing. */
+const MAP_LETTER: Record<Lang, LetterText> = {
   en: {
     eyebrow: 'A letter from Isla',
     title: 'Welcome aboard, {company}.',
@@ -45,15 +45,41 @@ export const DEFAULT_LETTER: Record<Lang, LetterText> = {
   },
 }
 
+/**
+ * The coin's letter: the map's letter, with the three sentences that name the chest and the map
+ * written for the case and the NFC coin instead. Everything else (title, the six steps, signoff)
+ * deliberately follows the map's letter.
+ * ponytail: draft copy, so the coin track works end to end; the real text comes with its design.
+ */
+const COIN_LETTER: Record<Lang, LetterText> = {
+  en: {
+    ...MAP_LETTER.en,
+    intro:
+      'Thank you for opening the case. We are Isla, and we turn your LinkedIn into booked sales meetings. We find the buyers who fit your ICP, grow and warm that network every day, and work every lead until it is a call on your calendar. You just approve.',
+    closing: 'The coin in this case opens your gift.\n\nWe would love to sail with you. Hold your phone to the coin, or scan the code.',
+    nfcCaption: 'Or hold your phone to the coin.',
+  },
+  pt: {
+    ...MAP_LETTER.pt,
+    intro:
+      'Obrigado por abrir a case. Somos a Isla e transformamos o seu LinkedIn em reuniões de vendas agendadas. Encontramos os compradores que estão no seu ICP, crescemos e aquecemos essa rede todos os dias, e trabalhamos cada lead até virar uma call na sua agenda. Você só aprova.',
+    closing: 'A moeda desta case abre o seu presente.\n\nQueremos navegar com vocês. Aproxime o celular da moeda ou escaneie o código.',
+    nfcCaption: 'Ou aproxime o celular da moeda.',
+  },
+}
+
+/** Default letter, per track and language. */
+export const DEFAULT_LETTER: Record<Kind, Record<Lang, LetterText>> = { map: MAP_LETTER, coin: COIN_LETTER }
+
 /** Pipeline stages drawn in the step 4 illustration. */
 export const PIPELINE: Record<Lang, string[]> = {
   en: ['Connecting', 'Engaging', 'Reach out', 'Call booked'],
   pt: ['Conectando', 'Engajando', 'Reach out', 'Call agendada'],
 }
 
-/** The letter as it will be drawn: defaults for the language, overridden by edits. */
-export function letterText(lang: Lang, edits: Partial<LetterText> | undefined): LetterText {
-  const base = DEFAULT_LETTER[lang]
+/** The letter as it will be drawn: defaults for the track and language, overridden by edits. */
+export function letterText(kind: Kind, lang: Lang, edits: Partial<LetterText> | undefined): LetterText {
+  const base = DEFAULT_LETTER[kind][lang]
   return {
     ...base,
     ...edits,

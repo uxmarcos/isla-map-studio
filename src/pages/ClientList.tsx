@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { importLocalMaps, localMaps, useClients } from '../store'
-import { STATUS_LABEL, STATUS_ORDER, type Status } from '../types'
+import { kindOf, STATUS_LABEL, STATUS_ORDER, type Kind, type Status } from '../types'
 import { MapCard } from '../ui/MapCard'
 import { downloadZip } from '../map/export'
 import { Button, Rise } from '../ui/kit'
@@ -9,12 +9,57 @@ import { toast } from '../ui/toast'
 
 type Filter = Status | 'all'
 
-export function ClientList() {
-  const clients = useClients()
+/** All the wording that differs between the tracks; the screen itself is the same. */
+const COPY: Record<
+  Kind,
+  { eyebrow: string; title: string; lede: string; create: string; createFirst: string; firstTitle: ReactNode; firstLede: string; noneForFilter: string; one: string; many: string; href: string }
+> = {
+  map: {
+    eyebrow: 'Campanha do baú',
+    title: 'Um mapa para cada *baú*.',
+    lede: 'Cadastre a empresa, o logo e a meta. O mapa sai pronto para imprimir, com o QR que abre o presente.',
+    create: 'Novo mapa',
+    createFirst: 'Criar o primeiro mapa',
+    firstTitle: (
+      <>
+        O primeiro mapa <em>começa aqui</em>.
+      </>
+    ),
+    firstLede: 'Crie um mapa, preencha os dados da empresa e baixe o arquivo para impressão.',
+    noneForFilter: 'Nenhum mapa com esse status.',
+    one: 'mapa',
+    many: 'mapas',
+    href: '#/new',
+  },
+  coin: {
+    eyebrow: 'Campanha da moeda',
+    title: 'Uma carta para cada *moeda*.',
+    lede: 'Cadastre a empresa, o logo e a meta. A carta sai pronta para imprimir e seguir junto com a case da moeda NFC.',
+    create: 'Nova carta',
+    createFirst: 'Criar a primeira carta',
+    firstTitle: (
+      <>
+        A primeira carta <em>começa aqui</em>.
+      </>
+    ),
+    firstLede: 'Crie uma carta, preencha os dados da empresa e baixe o arquivo para impressão.',
+    noneForFilter: 'Nenhuma carta com esse status.',
+    one: 'carta',
+    many: 'cartas',
+    href: '#/new/coin',
+  },
+}
+
+/** One track's pieces: the maps with their letters, or the coin's letters. */
+export function ClientList({ kind = 'map' }: { kind?: Kind }) {
+  const all = useClients()
+  const clients = useMemo(() => all.filter((c) => kindOf(c) === kind), [all, kind])
+  const copy = COPY[kind]
   const [filter, setFilter] = useState<Filter>('all')
   const [zipping, setZipping] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
-  const pending = useMemo(() => localMaps().length, [clients])
+  // Maps saved in this browser before the team database existed; the coin track never had that mode.
+  const pending = useMemo(() => (kind === 'map' ? localMaps().length : 0), [all, kind])
 
   async function runImport() {
     setImporting(true)
@@ -39,9 +84,9 @@ export function ClientList() {
   async function exportAll() {
     setZipping(`0/${shown.length}`)
     try {
-      const skipped = await downloadZip(shown, (n) => setZipping(`${n}/${shown.length}`))
+      const skipped = await downloadZip(shown, (n) => setZipping(`${n}/${shown.length}`), kind === 'coin')
       if (skipped.length)
-        toast(skipped.length === shown.length ? 'Nenhum mapa tem link de presente válido: nada foi exportado.' : `${skipped.length} sem link de presente válido ${skipped.length === 1 ? 'ficou' : 'ficaram'} de fora do .zip:`, {
+        toast(skipped.length === shown.length ? `Nenhum item tem link de presente válido: nada foi exportado.` : `${skipped.length} sem link de presente válido ${skipped.length === 1 ? 'ficou' : 'ficaram'} de fora do .zip:`, {
           tone: 'error',
           detail: skipped,
         })
@@ -53,18 +98,20 @@ export function ClientList() {
   return (
     <main className="container-page pb-32 pt-[calc(var(--nav-h)+72px)] md:pt-[calc(var(--nav-h)+96px)]">
       <section className="max-w-3xl">
-        <p className="eyebrow eyebrow-line fade-up">Campanha do baú</p>
-        <Rise text="Um mapa para cada *baú*." className="text-h1 mt-6" />
+        <p className="eyebrow eyebrow-line fade-up">{copy.eyebrow}</p>
+        <Rise text={copy.title} className="text-h1 mt-6" />
         <p className="text-lede fade-up mt-6 max-w-xl" style={{ animationDelay: '200ms' }}>
-          Cadastre a empresa, o logo e a meta. O mapa sai pronto para imprimir, com o QR que abre o presente.
+          {copy.lede}
         </p>
         <div className="fade-up mt-8 flex flex-wrap gap-2 sm:hidden" style={{ animationDelay: '250ms' }}>
-          <Button arrow onClick={() => navigate('#/new')}>
-            Novo mapa
+          <Button arrow onClick={() => navigate(copy.href)}>
+            {copy.create}
           </Button>
-          <Button variant="ghost" onClick={() => navigate('#/import')}>
-            Criar mapas em lote
-          </Button>
+          {kind === 'map' && (
+            <Button variant="ghost" onClick={() => navigate('#/import')}>
+              Criar mapas em lote
+            </Button>
+          )}
         </div>
       </section>
 
@@ -108,15 +155,11 @@ export function ClientList() {
 
         {shown.length === 0 ? (
           <div className="card mt-8 flex flex-col items-center rounded-3xl px-6 py-20 text-center">
-            <h2 className="text-h3">
-              {clients.length ? 'Nada aqui por enquanto.' : <>O primeiro mapa <em>começa aqui</em>.</>}
-            </h2>
-            <p className="mt-3 max-w-sm text-[15px] text-grey-1">
-              {clients.length ? 'Nenhum mapa com esse status.' : 'Crie um mapa, preencha os dados da empresa e baixe o arquivo para impressão.'}
-            </p>
+            <h2 className="text-h3">{clients.length ? 'Nada aqui por enquanto.' : copy.firstTitle}</h2>
+            <p className="mt-3 max-w-sm text-[15px] text-grey-1">{clients.length ? copy.noneForFilter : copy.firstLede}</p>
             {!clients.length && (
-              <Button className="mt-8" arrow onClick={() => navigate('#/new')}>
-                Criar o primeiro mapa
+              <Button className="mt-8" arrow onClick={() => navigate(copy.href)}>
+                {copy.createFirst}
               </Button>
             )}
           </div>

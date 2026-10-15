@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { slugify, useClients } from '../store'
-import { LANG_LABEL, STATUS_LABEL, STYLE_LABEL, type Client } from '../types'
+import { KIND_LABEL, kindOf, LANG_LABEL, STATUS_LABEL, STYLE_LABEL, type Client } from '../types'
 import { Button, Rise } from '../ui/kit'
 import { navigate } from '../router'
 
@@ -58,6 +58,8 @@ export function Clients() {
   const maps = useClients()
   const [q, setQ] = useState('')
   const customers = useMemo(() => group(maps), [maps])
+  const mapCount = maps.filter((m) => kindOf(m) === 'map').length
+  const coinCount = maps.length - mapCount
   const needle = slugify(q)
   const shown = needle
     ? customers.filter((c) => c.maps.some((m) => slugify(m.company).includes(needle) || slugify(m.destination).includes(needle)))
@@ -67,9 +69,9 @@ export function Clients() {
     <main className="container-page pb-32 pt-[calc(var(--nav-h)+72px)] md:pt-[calc(var(--nav-h)+96px)]">
       <section className="max-w-3xl">
         <p className="eyebrow eyebrow-line fade-up">Clientes</p>
-        <Rise text="Quem já tem *mapa*." className="text-h1 mt-6" />
+        <Rise text="Quem já tem *mapa ou carta*." className="text-h1 mt-6" />
         <p className="text-lede fade-up mt-6 max-w-xl" style={{ animationDelay: '200ms' }}>
-          Cada empresa com mapa vira um cliente, com o nome, a meta, o logo e o link do presente do último mapa. Use para consultar ou para fazer outro mapa já preenchido.
+          As duas trilhas juntas: cada empresa vira um cliente, com o nome, a meta, o logo e o link do presente da última peça. Use para consultar ou para criar outra já preenchida.
         </p>
       </section>
 
@@ -79,7 +81,8 @@ export function Clients() {
             <input className="field" type="search" value={q} placeholder="Buscar por empresa ou meta" onChange={(e) => setQ(e.target.value)} />
           </div>
           <p className="text-[13px] text-grey-2">
-            {customers.length} {customers.length === 1 ? 'cliente' : 'clientes'} · {maps.length} {maps.length === 1 ? 'mapa' : 'mapas'}
+            {customers.length} {customers.length === 1 ? 'cliente' : 'clientes'} · {mapCount} {mapCount === 1 ? 'mapa' : 'mapas'} · {coinCount}{' '}
+            {coinCount === 1 ? 'carta' : 'cartas'}
           </p>
         </div>
 
@@ -87,7 +90,7 @@ export function Clients() {
           <div className="card mt-8 flex flex-col items-center rounded-3xl px-6 py-20 text-center">
             <h2 className="text-h3">{customers.length ? 'Nenhum cliente encontrado.' : 'Nenhum cliente ainda.'}</h2>
             <p className="mt-3 max-w-sm text-[15px] text-grey-1">
-              {customers.length ? 'Tente outro nome.' : 'Quando você salvar o primeiro mapa, a empresa aparece aqui.'}
+              {customers.length ? 'Tente outro nome.' : 'Quando você salvar o primeiro mapa ou a primeira carta, a empresa aparece aqui.'}
             </p>
           </div>
         ) : (
@@ -108,24 +111,25 @@ export function Clients() {
                     <dl className="mt-3 grid gap-x-8 gap-y-2 text-[13px] sm:grid-cols-2 xl:grid-cols-4">
                       <Field label="Meta" value={c.destination || '—'} />
                       <Field label="URL do QR" value={c.qrUrl || 'Falta'} />
-                      <Field label="Mapa" value={`${STYLE_LABEL[c.style]} · ${LANG_LABEL[c.lang]}`} />
+                      <Field label={KIND_LABEL[kindOf(c)]} value={`${STYLE_LABEL[c.style]} · ${LANG_LABEL[c.lang]}`} />
                       <Field label="Atualizado" value={date(c.updatedAt)} />
                     </dl>
                   </div>
 
                   <div className="flex shrink-0 gap-2">
                     <Button size="sm" variant="ghost" onClick={() => navigate(`#/client/${c.id}`)}>
-                      Último mapa
+                      {kindOf(c) === 'coin' ? 'Última carta' : 'Último mapa'}
                     </Button>
+                    {/* The new piece starts from this one, so it is born on the same track. */}
                     <Button size="sm" arrow onClick={() => navigate(`#/new/from/${c.id}`)}>
-                      Novo mapa
+                      {kindOf(c) === 'coin' ? 'Nova carta' : 'Novo mapa'}
                     </Button>
                   </div>
                 </div>
 
                 <div className="hairline-t mt-5 flex flex-wrap items-center gap-2 pt-4">
                   <span className="mr-1 text-[12px] text-grey-2">
-                    {list.length} {list.length === 1 ? 'mapa' : 'mapas'}:
+                    {list.length} {list.length === 1 ? 'peça' : 'peças'}:
                   </span>
                   {list.map((m) => (
                     <a
@@ -133,7 +137,7 @@ export function Clients() {
                       href={`#/client/${m.id}`}
                       className="rounded-full border border-line px-3 py-1 text-[12px] text-grey-1 transition-colors duration-500 ease-heavy hover:border-line-strong hover:text-porcelain"
                     >
-                      {date(m.createdAt)} · {STATUS_LABEL[m.status]}
+                      {KIND_LABEL[kindOf(m)]} · {date(m.createdAt)} · {STATUS_LABEL[m.status]}
                     </a>
                   ))}
                 </div>

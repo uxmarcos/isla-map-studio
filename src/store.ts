@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { Client, Dangers, Lang, MapData, ShippingLabel } from './types'
+import { kindOf, type Client, type Dangers, type Kind, type Lang, type MapData, type ShippingLabel } from './types'
 import { supabase } from './supabase'
 import { downloadLogo, logoPathFor, removeLogos, uploadLogo } from './logos'
 import { toast } from './ui/toast'
@@ -54,11 +54,12 @@ function migrateDangers(d: (Partial<Dangers> & { whale?: string }) | undefined, 
   return { kraken: d.kraken ?? DEFAULT_DANGERS[lang].kraken, whirlpool: d.whirlpool ?? d.whale ?? DEFAULT_DANGERS[lang].whirlpool }
 }
 
-/** Fills in fields added after a map was saved: white, English, default notes and dangers. */
+/** Fills in fields added after a map was saved: the track, white, English, default notes and dangers. */
 function migrateClient(c: Client): Client {
   const lang = c.lang ?? 'en'
   return {
     ...c,
+    kind: kindOf(c),
     style: c.style ?? 'white',
     lang,
     stageNotes: c.stageNotes ?? [...DEFAULT_NOTES[lang]],
@@ -272,11 +273,15 @@ export const DEFAULT_GOAL = 'Transforme seu LinkedIn em pipeline'
 /** The default goal is an imperative, which doesn't read after "O caminho até": the subtitle uses this instead. */
 const DEFAULT_PATH_TO = 'Transformar seu LinkedIn em pipeline'
 
-/** A blank map, in Portuguese, not saved until saveClient is called. */
-export function newClient(): Client {
+/**
+ * A blank piece, in Portuguese, not saved until saveClient is called. A coin's letter ignores the
+ * route fields (stages, notes, start, dangers), which stay at their defaults: one type, one store.
+ */
+export function newClient(kind: Kind = 'map'): Client {
   const now = Date.now()
   return {
     id: crypto.randomUUID(),
+    kind,
     company: '',
     slug: '',
     style: 'color',
@@ -296,7 +301,7 @@ export function newClient(): Client {
   }
 }
 
-/** A new map for the same client: everything personalised is kept (name, logo, goal, gift link, texts); status and shipping label start over. */
+/** A new piece for the same client: the track and everything personalised are kept (name, logo, goal, gift link, texts); status and shipping label start over. */
 export function mapFrom(c: Client): Client {
   const fresh = newClient()
   return { ...structuredClone(c), id: fresh.id, clientId: c.clientId ?? c.id, status: 'draft', notes: '', shippingLabel: null, createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }

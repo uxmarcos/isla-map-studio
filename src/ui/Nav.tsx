@@ -1,9 +1,16 @@
 import { Button, Mark } from './kit'
 import { REQUIRE_LOGIN, signOut, useSession } from '../supabase'
 import { navigate, type Route } from '../router'
+import { useClients } from '../store'
+import { kindOf } from '../types'
 
 export function Nav({ route }: { route: Route }) {
   const email = useSession()?.user.email
+  // Which track is open. The editor's route carries no track: it comes from the piece it has open.
+  const clients = useClients()
+  const editing = route.name === 'client' ? clients.find((c) => c.id === route.id) : undefined
+  const coin = route.name === 'coins' || (route.name === 'new' && route.kind === 'coin') || (!!editing && kindOf(editing) === 'coin')
+  const mapTrack = !coin && (route.name === 'list' || route.name === 'new' || route.name === 'client')
   const link = (href: string, label: string, active: boolean) => (
     <a
       href={href}
@@ -23,7 +30,8 @@ export function Nav({ route }: { route: Route }) {
             </span>
           </a>
           <span className="hidden h-5 w-px bg-line sm:block" />
-          {link('#/', 'Mapas', route.name === 'list' || route.name === 'client' || route.name === 'new')}
+          {link('#/', 'Mapas', mapTrack)}
+          {link('#/moedas', 'Moedas', coin)}
           {link('#/clients', 'Clientes', route.name === 'clients')}
           {link('#/labels', 'Etiquetas', route.name === 'labels')}
           {link('#/settings', 'Configurações', route.name === 'settings')}
@@ -31,6 +39,9 @@ export function Nav({ route }: { route: Route }) {
         {/* Hidden while creating a map: you are already making one. */}
         {(route.name !== 'new' || REQUIRE_LOGIN) && (
           <div className="flex h-12 items-center gap-2">
+            <a href="#/moedas" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
+              Moedas
+            </a>
             <a href="#/clients" className="px-2 text-[13px] text-grey-1 hover:text-porcelain sm:hidden">
               Clientes
             </a>
@@ -52,11 +63,14 @@ export function Nav({ route }: { route: Route }) {
             {/* On phones these two live in the page (under the intro on Mapas), not in the bar. */}
             {route.name !== 'new' && (
               <div className="hidden items-center gap-2 sm:flex">
-                <Button size="sm" variant="ghost" className="bg-ink/70 backdrop-blur-md" onClick={() => navigate('#/import')}>
-                  Criar mapas em lote
-                </Button>
-                <Button size="sm" arrow onClick={() => navigate('#/new')}>
-                  Novo mapa
+                {/* Batch import builds maps; the coin track creates one letter at a time. */}
+                {!coin && (
+                  <Button size="sm" variant="ghost" className="bg-ink/70 backdrop-blur-md" onClick={() => navigate('#/import')}>
+                    Criar mapas em lote
+                  </Button>
+                )}
+                <Button size="sm" arrow onClick={() => navigate(coin ? '#/new/coin' : '#/new')}>
+                  {coin ? 'Nova carta' : 'Novo mapa'}
                 </Button>
               </div>
             )}

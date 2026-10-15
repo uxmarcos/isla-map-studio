@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Client, Status } from '../types'
-import { STATUS_LABEL, STATUS_ORDER } from '../types'
+import { KIND_LABEL, kindOf, STATUS_LABEL, STATUS_ORDER } from '../types'
 import { deleteClient, saveClient } from '../store'
 import { MapCanvas } from '../map/MapCanvas'
 import { LetterCanvas } from '../letter/LetterCanvas'
@@ -29,30 +29,40 @@ function useDismiss(open: boolean, close: () => void) {
 const MENU = 'absolute z-20 min-w-[180px] rounded-2xl border border-line-strong bg-ink-2 p-1.5 shadow-[0_24px_48px_-12px_rgb(0_0_0/0.8)] fade-in'
 const ITEM = 'flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[13px] text-grey-1 transition-colors duration-300 hover:bg-porcelain/[0.06] hover:text-porcelain'
 
-/** A map in the list: click opens the editor; status and actions change it in place. */
+/** A piece in the list: click opens the editor; status and actions change it in place. */
 export function MapCard({ client: c }: { client: Client }) {
   const [preview, setPreview] = useState(false)
   const edit = `#/client/${c.id}`
+  const coin = kindOf(c) === 'coin'
+  const piece = KIND_LABEL[kindOf(c)]
   return (
     <div className="card group relative rounded-3xl transition-[border-color] duration-500 ease-heavy hover:border-line-strong">
-      <a href={edit} className="block overflow-hidden rounded-t-3xl border-b border-line">
-        <MapCanvas client={c} resolution={900} className="transition-transform duration-700 ease-heavy group-hover:scale-[1.03]" />
+      {/* The letter is A4 portrait: at card width the whole sheet would tower over the map cards,
+          so the coin's thumbnail is a window on its top third — logo, title and the first lines. */}
+      <a href={edit} className={`block overflow-hidden rounded-t-3xl border-b border-line ${coin ? 'aspect-[3/2]' : ''}`}>
+        {coin ? (
+          <LetterCanvas client={c} resolution={900} className="transition-transform duration-700 ease-heavy group-hover:scale-[1.03]" />
+        ) : (
+          <MapCanvas client={c} resolution={900} className="transition-transform duration-700 ease-heavy group-hover:scale-[1.03]" />
+        )}
       </a>
       <div className="flex items-start justify-between gap-4 p-5">
         <a href={edit} className="min-w-0">
           <h3 className="text-h3 truncate">{c.company || <span className="text-grey-2">Sem nome</span>}</h3>
           <p className="mt-1 truncate text-[13px] text-grey-1">
-            {c.lang === 'pt' ? 'PT' : 'EN'} · Rumo a {c.destination || '—'} · /{c.slug || '—'}
+            {c.lang === 'pt' ? 'PT' : 'EN'} · {coin ? '' : 'Rumo a '}
+            {c.destination || '—'} · /{c.slug || '—'}
           </p>
         </a>
         <StatusMenu status={c.status} onChange={(status) => saveClient({ ...c, status })} />
       </div>
       <ActionsMenu
+        deleteLabel={`Excluir ${piece.toLowerCase()}`}
         onView={() => setPreview(true)}
         onEdit={() => navigate(edit)}
         onDelete={() => {
           deleteClient(c.id)
-          toast(`Mapa de ${c.company || 'Sem nome'} excluído.`, { action: { label: 'Desfazer', run: () => saveClient(c) } })
+          toast(`${piece} de ${c.company || 'Sem nome'} ${coin ? 'excluída' : 'excluído'}.`, { action: { label: 'Desfazer', run: () => saveClient(c) } })
         }}
       />
       {/* On body: the card's entrance animation would trap a fixed overlay inside it. */}
@@ -96,7 +106,7 @@ function StatusMenu({ status, onChange }: { status: Status; onChange: (s: Status
   )
 }
 
-function ActionsMenu({ onView, onEdit, onDelete }: { onView: () => void; onEdit: () => void; onDelete: () => void }) {
+function ActionsMenu({ deleteLabel, onView, onEdit, onDelete }: { deleteLabel: string; onView: () => void; onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useDismiss(open, () => setOpen(false))
   const item = (label: string, run: () => void, danger = false): ReactNode => (
@@ -117,7 +127,7 @@ function ActionsMenu({ onView, onEdit, onDelete }: { onView: () => void; onEdit:
     <div ref={ref} className={`absolute right-3 top-3 transition-opacity duration-300 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-within:opacity-100 ${open ? '!opacity-100' : ''}`}>
       <button
         type="button"
-        aria-label="Ações do mapa"
+        aria-label="Ações"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -134,16 +144,17 @@ function ActionsMenu({ onView, onEdit, onDelete }: { onView: () => void; onEdit:
           {item('Visualizar', onView)}
           {item('Editar', onEdit)}
           <div className="my-1 h-px bg-line" />
-          {item('Excluir mapa', onDelete, true)}
+          {item(deleteLabel, onDelete, true)}
         </div>
       )}
     </div>
   )
 }
 
-/** The map and its letter, large, without leaving the page. */
+/** The piece, large, without leaving the page: a map and its letter, or the coin's letter alone. */
 export function Preview({ client: c, onClose }: { client: Client; onClose: () => void }) {
-  const [view, setView] = useState<'map' | 'letter'>('map')
+  const coin = kindOf(c) === 'coin'
+  const [view, setView] = useState<'map' | 'letter'>(coin ? 'letter' : 'map')
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', key)
@@ -157,18 +168,23 @@ export function Preview({ client: c, onClose }: { client: Client; onClose: () =>
   return (
     <div role="dialog" aria-modal="true" aria-label={`Visualizar ${c.company}`} className="fixed inset-0 z-[60] flex flex-col bg-ink/90 backdrop-blur-sm fade-in" onClick={onClose}>
       <div className="container-page flex items-center justify-between gap-3 py-4" onClick={(e) => e.stopPropagation()}>
-        <div className="glass flex rounded-full p-1">
-          {(['map', 'letter'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={`h-9 cursor-pointer rounded-full px-5 text-[13px] transition-colors duration-500 ease-heavy ${view === v ? 'bg-porcelain text-ink' : 'text-grey-1 hover:text-porcelain'}`}
-            >
-              {v === 'map' ? 'Mapa' : 'Carta'}
-            </button>
-          ))}
-        </div>
+        {/* Nothing to switch on the coin track: the letter is the whole piece. */}
+        {coin ? (
+          <span />
+        ) : (
+          <div className="glass flex rounded-full p-1">
+            {(['map', 'letter'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                className={`h-9 cursor-pointer rounded-full px-5 text-[13px] transition-colors duration-500 ease-heavy ${view === v ? 'bg-porcelain text-ink' : 'text-grey-1 hover:text-porcelain'}`}
+              >
+                {v === 'map' ? 'Mapa' : 'Carta'}
+              </button>
+            ))}
+          </div>
+        )}
         <button type="button" onClick={onClose} className="glass h-11 cursor-pointer rounded-full px-5 text-[13px] text-porcelain">
           Fechar
         </button>

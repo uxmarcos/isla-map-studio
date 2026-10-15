@@ -39,7 +39,9 @@ export default function App() {
         {route.name === 'client' ? (
           <ClientEditor id={route.id} />
         ) : route.name === 'new' ? (
-          <ClientEditor id={null} from={route.from} />
+          <ClientEditor id={null} from={route.from} kind={route.kind} />
+        ) : route.name === 'coins' ? (
+          <ClientList kind="coin" />
         ) : route.name === 'settings' ? (
           <Settings />
         ) : route.name === 'import' ? (

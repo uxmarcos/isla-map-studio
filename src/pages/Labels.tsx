@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { downloadLabelsZip, shippingLabelsEnabled, slugify, useClients } from '../store'
-import { STATUS_LABEL, STATUS_ORDER, type Client, type Status } from '../types'
+import { KIND_LABEL, kindOf, STATUS_LABEL, STATUS_ORDER, type Client, type Status } from '../types'
 import { Button, Rise, StatusPill } from '../ui/kit'
 import { toast } from '../ui/toast'
 import { date, errorText, labelMeta, useShippingLabelActions } from '../ui/shippingLabelActions'
@@ -57,9 +57,9 @@ export function Labels() {
     <main className="container-page pb-32 pt-[calc(var(--nav-h)+72px)] md:pt-[calc(var(--nav-h)+96px)]">
       <section className="max-w-3xl">
         <p className="eyebrow eyebrow-line fade-up">Envio</p>
-        <Rise text="Cada baú com a sua *etiqueta*." className="text-h1 mt-6" />
+        <Rise text="Cada caixa com a sua *etiqueta*." className="text-h1 mt-6" />
         <p className="text-lede fade-up mt-6 max-w-xl" style={{ animationDelay: '200ms' }}>
-          Anexe o PDF da etiqueta ao mapa de cada baú. Depois baixe uma, as selecionadas ou todas de uma vez.
+          As duas trilhas juntas: anexe o PDF da etiqueta a cada mapa ou carta. Depois baixe uma, as selecionadas ou todas de uma vez.
         </p>
       </section>
 
@@ -99,9 +99,9 @@ export function Labels() {
 
           {shown.length === 0 ? (
             <div className="card mt-8 flex flex-col items-center rounded-3xl px-6 py-20 text-center">
-              <h2 className="text-h3">{clients.length ? 'Nenhum mapa encontrado.' : 'Nenhum mapa ainda.'}</h2>
+              <h2 className="text-h3">{clients.length ? 'Nada encontrado.' : 'Nada por aqui ainda.'}</h2>
               <p className="mt-3 max-w-sm text-[15px] text-grey-1">
-                {clients.length ? 'Tente outro nome ou status.' : 'Crie um mapa para anexar a etiqueta do baú.'}
+                {clients.length ? 'Tente outro nome ou status.' : 'Crie um mapa ou uma carta para anexar a etiqueta da caixa.'}
               </p>
             </div>
           ) : (
@@ -117,7 +117,7 @@ export function Labels() {
                   disabled={!withLabel.length}
                   onChange={toggleAll}
                 />
-                {withLabel.length} de {shown.length} {shown.length === 1 ? 'mapa' : 'mapas'} com etiqueta
+                {withLabel.length} de {shown.length} {shown.length === 1 ? 'peça' : 'peças'} com etiqueta
               </label>
               <ul>
                 {shown.map((c) => (
@@ -159,7 +159,9 @@ function Row({ client: c, checked, onToggle, actions }: { client: Client; checke
           <a href={`#/client/${c.id}`} className="block truncate text-[15px] text-porcelain hover:underline">
             {c.company || <span className="text-grey-2">Sem nome</span>}
           </a>
-          <p className="mt-0.5 truncate text-[12px] text-grey-2">Mapa de {date(c.createdAt)} · /{c.slug || '—'}</p>
+          <p className="mt-0.5 truncate text-[12px] text-grey-2">
+            {KIND_LABEL[kindOf(c)]} de {date(c.createdAt)} · /{c.slug || '—'}
+          </p>
         </div>
         <span className="ml-auto hidden sm:block md:ml-4">
           <StatusPill status={c.status} />

@@ -1,5 +1,15 @@
 export type Status = 'draft' | 'ready' | 'printed' | 'shipped'
 
+/**
+ * What the client receives: the chest with the treasure map (and its letter), or the case with the
+ * NFC coin, which carries only a letter. The two tracks share everything but the printed artwork.
+ */
+export type Kind = 'map' | 'coin'
+
+/** The printed piece of each track. */
+export const KIND_LABEL: Record<Kind, string> = { map: 'Mapa', coin: 'Carta' }
+export const KIND_PLURAL: Record<Kind, string> = { map: 'mapas', coin: 'cartas' }
+
 export type LogoMode = 'ink' | 'gray' | 'original' | 'hidden'
 
 export type MapStyle = 'white' | 'dark' | 'color'
@@ -48,6 +58,8 @@ export interface ShippingLabel {
 
 export interface Client {
   id: string
+  /** Missing on everything saved before the coin track existed, which is all maps: see kindOf. */
+  kind?: Kind
   /** Links maps of the same client: set on maps started from another one ("Novo mapa" in Clientes). */
   clientId?: string
   company: string
@@ -84,6 +96,9 @@ export interface Client {
   createdAt: number
   updatedAt: number
 }
+
+/** A map saved before the coin track has no kind, and every one of them is a map. */
+export const kindOf = (c: Pick<Client, 'kind'>): Kind => c.kind ?? 'map'
 
 /** What the renderer needs; derived from a Client. */
 export interface MapData {

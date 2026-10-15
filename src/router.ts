@@ -1,18 +1,22 @@
 import { useSyncExternalStore } from 'react'
+import type { Kind } from './types'
 
 export type Route =
-  | { name: 'list' } | { name: 'settings' } | { name: 'import' } | { name: 'clients' } | { name: 'labels' }
-  /** from: a map whose client data the new map starts with. */
-  | { name: 'new'; from?: string }
+  /** The two tracks: maps (with their letters) and the coin's letters. */
+  | { name: 'list' } | { name: 'coins' }
+  | { name: 'settings' } | { name: 'import' } | { name: 'clients' } | { name: 'labels' }
+  /** from: a piece whose client data the new one starts with (its track comes along). */
+  | { name: 'new'; kind: Kind; from?: string }
   | { name: 'client'; id: string }
 
 function parse(hash: string): Route {
   const m = hash.match(/^#\/client\/([\w-]+)/)
   if (m) return { name: 'client', id: m[1] }
   if (hash.startsWith('#/settings')) return { name: 'settings' }
-  const from = hash.match(/^#\/new\/from\/([\w-]+)/)
-  if (from) return { name: 'new', from: from[1] }
-  if (hash.startsWith('#/new')) return { name: 'new' }
+  // #/new, #/new/coin, #/new/from/:id, #/new/coin/from/:id
+  const n = hash.match(/^#\/new(\/coin)?(?:\/from\/([\w-]+))?/)
+  if (n) return { name: 'new', kind: n[1] ? 'coin' : 'map', from: n[2] }
+  if (hash.startsWith('#/moedas')) return { name: 'coins' }
   if (hash.startsWith('#/clients')) return { name: 'clients' }
   if (hash.startsWith('#/import')) return { name: 'import' }
   if (hash.startsWith('#/labels')) return { name: 'labels' }

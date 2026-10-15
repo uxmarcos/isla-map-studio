@@ -1,10 +1,11 @@
-import type { Client, LetterText } from '../types'
+import { kindOf, type Client, type LetterText } from '../types'
 import { Label } from '../ui/kit'
 import { letterText } from './copy'
 
-/** Letter text, pre-filled for the map's language and editable per map. */
+/** Letter text, pre-filled for the track and language, editable per piece. */
 export function LetterFields({ c, set }: { c: Client; set: (patch: Partial<Client>) => void }) {
-  const text = letterText(c.lang, c.letter)
+  const kind = kindOf(c)
+  const text = letterText(kind, c.lang, c.letter)
   const edit = <K extends keyof LetterText>(key: K, value: LetterText[K]) => set({ letter: { ...c.letter, [key]: value } })
   const editStep = (i: number, key: 'title' | 'text', value: string) =>
     edit('steps', text.steps.map((s, k) => (k === i ? { ...s, [key]: value } : s)))
@@ -23,11 +24,11 @@ export function LetterFields({ c, set }: { c: Client; set: (patch: Partial<Clien
         </button>
       </div>
       <p className="text-[12px] text-grey-2">
-        {'{company}'} e {'{goal}'} viram o nome da empresa e a meta final do mapa.
+        {'{company}'} e {'{goal}'} viram o nome da empresa e {kind === 'coin' ? 'a meta do cliente' : 'a meta final do mapa'}.
       </p>
 
       <div>
-        <Label>Meta final, no X do tesouro</Label>
+        <Label>{kind === 'coin' ? 'Meta do cliente, no {goal}' : 'Meta final, no X do tesouro'}</Label>
         <input className="field" value={c.destination} onChange={(e) => set({ destination: e.target.value, goal: e.target.value })} />
       </div>
       <div>

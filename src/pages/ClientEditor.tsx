@@ -5,7 +5,8 @@ import {
   useSettings,
 } from '../store'
 import {
-  LANG_LABEL, LANG_ORDER, STATUS_LABEL, STATUS_ORDER, STYLE_LABEL, STYLE_ORDER, type Client, type Lang, type LogoMode, type MapStyle, type Status,
+  KIND_LABEL, kindOf, LANG_LABEL, LANG_ORDER, STATUS_LABEL, STATUS_ORDER, STYLE_LABEL, STYLE_ORDER,
+  type Client, type Kind, type Lang, type LogoMode, type MapStyle, type Status,
 } from '../types'
 import { MapCanvas } from '../map/MapCanvas'
 import { downloadLetterPdf, downloadLetterPng, downloadPdf, downloadPng, PRINT_MM, SAFE_MARGIN_MM } from '../map/export'
@@ -31,18 +32,21 @@ const SWATCH: Record<MapStyle, string> = {
   color: 'bg-[linear-gradient(135deg,#e9cfa0_0_50%,#6fa8b8_50%_100%)]',
 }
 
-/** id null = a new map, kept as a draft until saved; from = start it with that map's client data. */
-export function ClientEditor({ id, from }: { id: string | null; from?: string }) {
+/**
+ * id null = a new piece, kept as a draft until saved; from = start it with that piece's client
+ * data (and its track); kind = the track a new piece belongs to.
+ */
+export function ClientEditor({ id, from, kind = 'map' }: { id: string | null; from?: string; kind?: Kind }) {
   // Snapshot on open; edits stay local until Save.
   const initial = useMemo(() => {
     if (id) return getClient(id)
     const source = from ? getClient(from) : undefined
-    return source ? mapFrom(source) : newClient()
-  }, [id, from])
+    return source ? mapFrom(source) : newClient(kind)
+  }, [id, from, kind])
   if (!initial) {
     return (
       <main className="container-page pt-[calc(var(--nav-h)+96px)]">
-        <h1 className="text-h2">Mapa não encontrado.</h1>
+        <h1 className="text-h2">Não encontrado.</h1>
         <Button className="mt-8" variant="ghost" onClick={() => navigate('#/')}>
           Voltar para os mapas
         </Button>
@@ -59,19 +63,25 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
   const [baseline, setBaseline] = useState(initial)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState<'pdf' | 'pdf-margin' | 'png' | null>(null)
+  // The coin track has no map: its editor is the letter, and the switch below disappears.
+  const kind = kindOf(initial)
+  const coin = kind === 'coin'
+  const piece = KIND_LABEL[kind]
+  const lower = piece.toLowerCase()
+  const listHref = coin ? '#/moedas' : '#/'
   // One preview at a time keeps the page short; both update live.
-  const [view, setView] = useState<'map' | 'letter'>('map')
+  const [view, setView] = useState<'map' | 'letter'>(coin ? 'letter' : 'map')
   const fileRef = useRef<HTMLInputElement>(null)
   const set = (patch: Partial<Client>) => setC((prev) => ({ ...prev, ...patch }))
   const qr = checkQrUrl(c.qrUrl)
   const dirty = (isNew && !saved && baseline === initial) || JSON.stringify(c) !== JSON.stringify(baseline)
   const changed = JSON.stringify(c) !== JSON.stringify(baseline)
-  const missing = [!c.company.trim() && 'o nome da empresa', !c.destination.trim() && 'a meta final'].filter(Boolean) as string[]
+  const missing = [!c.company.trim() && 'o nome da empresa', !c.destination.trim() && (coin ? 'a meta do cliente' : 'a meta final')].filter(Boolean) as string[]
 
   // Leaving with unsaved edits asks first: menu links, the back-to-list link, closing the tab.
   useEffect(() => {
     if (!changed) return
-    setLeaveGuard(() => confirm(isNew && baseline === initial ? 'Descartar este mapa?' : 'Sair sem salvar as alterações?'))
+    setLeaveGuard(() => confirm(isNew && baseline === initial ? `Descartar ${coin ? 'esta carta' : 'este mapa'}?` : 'Sair sem salvar as alterações?'))
     const unload = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', unload)
     return () => {
@@ -92,7 +102,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
     if (missing.length) return toast(`Preencha ${missing.join(' e ')} antes de salvar.`, { tone: 'error' })
     commit(c)
     if (isNew) setSaved(true)
-    else toast('Mapa salvo.')
+    else toast(coin ? 'Carta salva.' : 'Mapa salvo.')
   }
 
   function keepEditing() {
@@ -102,7 +112,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
   }
 
   // The leave guard asks when there is something to lose.
-  const cancel = () => navigate('#/')
+  const cancel = () => navigate(listHref)
 
   function setCompany(company: string) {
     const patch: Partial<Client> = { company }
@@ -149,13 +159,20 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
     <main className="container-page pb-32 pt-[calc(var(--nav-h)+48px)]">
       <div className="fade-up flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <a href="#/" className="text-[13px] text-grey-1 transition-colors duration-500 hover:text-porcelain">
-            ← Todos os mapas
+          <a href={listHref} className="text-[13px] text-grey-1 transition-colors duration-500 hover:text-porcelain">
+            {coin ? '← Todas as cartas' : '← Todos os mapas'}
           </a>
           <h1 className="text-h2 mt-4 truncate">
             {c.company ? (
               <>
-                {c.company} <em className="text-grey-1">{c.lang === 'pt' ? 'mapa do tesouro' : 'treasure map'}</em>
+                {c.company}{' '}
+                <em className="text-grey-1">
+                  {coin ? (c.lang === 'pt' ? 'carta da trilha moeda' : 'coin letter') : c.lang === 'pt' ? 'mapa do tesouro' : 'treasure map'}
+                </em>
+              </>
+            ) : coin ? (
+              <>
+                Nova <em>carta</em>
               </>
             ) : (
               <>
@@ -170,7 +187,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
         {/* Form */}
         <form className="card fade-up order-2 space-y-8 rounded-3xl p-5 sm:p-7 lg:order-1" onSubmit={(e) => e.preventDefault()} style={{ animationDelay: '120ms' }}>
           <section className="space-y-4">
-            <p className="eyebrow">Versão do mapa</p>
+            <p className="eyebrow">{coin ? 'Versão da carta' : 'Versão do mapa'}</p>
             <div className="grid grid-cols-3 gap-2">
               {STYLE_ORDER.map((st) => (
                 <button
@@ -185,7 +202,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               ))}
             </div>
             <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-[13px] font-medium text-porcelain">Idioma do mapa</span>
+              <span className="text-[13px] font-medium text-porcelain">{coin ? 'Idioma da carta' : 'Idioma do mapa'}</span>
               <div className="glass inline-flex gap-1 rounded-full p-1">
                 {LANG_ORDER.map((l) => (
                   <button
@@ -219,7 +236,11 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
                 onBlur={() => set({ qrUrl: normalizeQrUrl(c.qrUrl) })}
               />
               <p className={`mt-2 text-[12px] ${qr.ok ? 'text-grey-2' : 'text-[#ff8a7a]'}`}>
-                {qr.ok ? 'O QR do mapa e da carta abre exatamente este link. Teste com a câmera antes de imprimir.' : qr.error}
+                {qr.ok
+                  ? coin
+                    ? 'O QR da carta e a moeda NFC abrem exatamente este link. Teste com a câmera antes de imprimir.'
+                    : 'O QR do mapa e da carta abre exatamente este link. Teste com a câmera antes de imprimir.'
+                  : qr.error}
               </p>
             </div>
           </section>
@@ -228,7 +249,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
           <section className="hairline-t space-y-4 pt-7">
             <div className="flex items-baseline justify-between gap-3">
               <p className="eyebrow">Logo</p>
-              <span className="text-[12px] text-grey-2">Vale para o mapa e a carta</span>
+              <span className="text-[12px] text-grey-2">{coin ? 'Aparece na carta' : 'Vale para o mapa e a carta'}</span>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -350,7 +371,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
             <LetterFields c={c} set={set} />
           )}
 
-          <ShippingLabelSection id={c.id} />
+          <ShippingLabelSection id={c.id} coin={coin} />
 
           <section className="hairline-t space-y-3 pt-7">
             <p className="eyebrow">Notas internas</p>
@@ -370,11 +391,14 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               onClick={() => {
                 const stored = getClient(c.id)
                 deleteClient(c.id)
-                navigate('#/', { force: true })
-                if (stored) toast(`Mapa de ${stored.company || 'Sem nome'} excluído.`, { action: { label: 'Desfazer', run: () => saveClient(stored) } })
+                navigate(listHref, { force: true })
+                if (stored)
+                  toast(`${piece} de ${stored.company || 'Sem nome'} ${coin ? 'excluída' : 'excluído'}.`, {
+                    action: { label: 'Desfazer', run: () => saveClient(stored) },
+                  })
               }}
             >
-              Excluir mapa
+              Excluir {lower}
             </button>
           </div>
           )}
@@ -383,20 +407,23 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
         {/* Preview */}
         <div className="order-1 lg:order-2">
           <div className="fade-up lg:sticky lg:top-[calc(var(--nav-h)+24px)]" style={{ animationDelay: '220ms' }}>
-            <div className="mb-5 flex justify-center">
-              <div className="glass inline-flex gap-1 rounded-full p-1">
-                {(['map', 'letter'] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    className={`h-9 cursor-pointer rounded-full px-5 text-[13px] transition-colors duration-500 ease-heavy ${view === v ? 'bg-porcelain text-ink' : 'text-grey-1 hover:text-porcelain'}`}
-                  >
-                    {v === 'map' ? (c.lang === 'pt' ? 'Mapa' : 'Map') : c.lang === 'pt' ? 'Carta' : 'Letter'}
-                  </button>
-                ))}
+            {/* The coin track has only the letter: nothing to switch between. */}
+            {!coin && (
+              <div className="mb-5 flex justify-center">
+                <div className="glass inline-flex gap-1 rounded-full p-1">
+                  {(['map', 'letter'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setView(v)}
+                      className={`h-9 cursor-pointer rounded-full px-5 text-[13px] transition-colors duration-500 ease-heavy ${view === v ? 'bg-porcelain text-ink' : 'text-grey-1 hover:text-porcelain'}`}
+                    >
+                      {v === 'map' ? (c.lang === 'pt' ? 'Mapa' : 'Map') : c.lang === 'pt' ? 'Carta' : 'Letter'}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             {view === 'map' ? (
               <div className="paper-sheet overflow-hidden rounded-[6px] border border-line">
                 <MapCanvas client={c} resolution={2400} />
@@ -410,7 +437,9 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
               {STYLE_LABEL[c.style]} · {LANG_LABEL[c.lang]} · {view === 'map' ? `A4, ${PRINT_MM.w} × ${PRINT_MM.h} mm` : 'A4, 210 × 297 mm'} · {qr.ok ? `QR → ${qr.url}` : 'QR pendente'}
             </p>
             {!qr.ok && (
-              <p className="mt-2 text-[12px] text-[#ff8a7a]">Sem a URL do QR não dá para exportar: o mapa impresso sem ela não abre o presente.</p>
+              <p className="mt-2 text-[12px] text-[#ff8a7a]">
+                Sem a URL do QR não dá para exportar: {coin ? 'a carta impressa' : 'o mapa impresso'} sem ela não abre o presente.
+              </p>
             )}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap gap-2">
@@ -445,7 +474,7 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
  * The box's shipping label. Saved on its own as soon as it is attached (not with the form), so it
  * reads the stored map: a map that was never saved has nowhere to attach it yet.
  */
-function ShippingLabelSection({ id }: { id: string }) {
+function ShippingLabelSection({ id, coin }: { id: string; coin: boolean }) {
   const stored = useClients().find((x) => x.id === id)
   const actions = useShippingLabelActions()
   const busy = actions.busy[id]
@@ -461,7 +490,7 @@ function ShippingLabelSection({ id }: { id: string }) {
       {!shippingLabelsEnabled ? (
         <p className="text-[13px] text-grey-2">Etiquetas ficam no banco da equipe; não estão disponíveis no modo só do navegador.</p>
       ) : !stored ? (
-        <p className="text-[13px] text-grey-2">Salve o mapa para anexar o PDF da etiqueta.</p>
+        <p className="text-[13px] text-grey-2">Salve {coin ? 'a carta' : 'o mapa'} para anexar o PDF da etiqueta.</p>
       ) : (
         <div
           className="flex flex-col gap-3 rounded-2xl border border-dashed border-line-strong bg-ink-3 p-4"
@@ -503,8 +532,9 @@ function ShippingLabelSection({ id }: { id: string }) {
   )
 }
 
-/** Confirms the save and sets the map's status right there. */
+/** Confirms the save and sets the piece's status right there. */
 function SavedDialog({ client: c, onStatus, onKeepEditing }: { client: Client; onStatus: (s: Status) => void; onKeepEditing: () => void }) {
+  const coin = kindOf(c) === 'coin'
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onKeepEditing()
     document.addEventListener('keydown', key)
@@ -519,11 +549,13 @@ function SavedDialog({ client: c, onStatus, onKeepEditing }: { client: Client; o
         className="card w-full max-w-md rounded-3xl p-6 sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="saved-title" className="text-h3">Mapa salvo com <em>sucesso</em>.</h2>
+        <h2 id="saved-title" className="text-h3">
+          {coin ? 'Carta salva' : 'Mapa salvo'} com <em>sucesso</em>.
+        </h2>
         <p className="mt-2 text-[14px] text-grey-1">
-          {c.company || 'Sem nome'} já está na lista, com a carta. Em que etapa ele está?
+          {c.company || 'Sem nome'} já está na lista{coin ? '' : ', com a carta'}. Em que etapa {coin ? 'ela' : 'ele'} está?
         </p>
-        <div role="radiogroup" aria-label="Status do mapa" className="mt-6 grid gap-2">
+        <div role="radiogroup" aria-label={coin ? 'Status da carta' : 'Status do mapa'} className="mt-6 grid gap-2">
           {STATUS_ORDER.map((s) => (
             <button
               key={s}
@@ -543,7 +575,9 @@ function SavedDialog({ client: c, onStatus, onKeepEditing }: { client: Client; o
         </div>
         <div className="mt-8 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="quiet" onClick={onKeepEditing}>Continuar editando</Button>
-          <Button arrow onClick={() => navigate('#/', { force: true })}>Ir para os mapas</Button>
+          <Button arrow onClick={() => navigate(coin ? '#/moedas' : '#/', { force: true })}>
+            {coin ? 'Ir para as cartas' : 'Ir para os mapas'}
+          </Button>
         </div>
       </div>
     </div>
