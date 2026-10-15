@@ -46,25 +46,34 @@ const MAP_LETTER: Record<Lang, LetterText> = {
 }
 
 /**
- * The coin's letter: the map's letter, with the three sentences that name the chest and the map
- * written for the case and the NFC coin instead. Everything else (title, the six steps, signoff)
- * deliberately follows the map's letter.
- * ponytail: draft copy, so the coin track works end to end; the real text comes with its design.
+ * The coin's letter. It keeps the map's letter whole — same title, same six steps, same signoff —
+ * because the coin is the experience and this page is still where the client learns what Isla does.
+ * What changes all follows from there being no map in the box:
+ *  - the opening names the case instead of the chest;
+ *  - goalLine prints the client's goal, which on the map is the X at the end of the route;
+ *  - the captions swap roles: the coin is the gesture, the QR is the way in when NFC is not.
  */
 const COIN_LETTER: Record<Lang, LetterText> = {
   en: {
     ...MAP_LETTER.en,
     intro:
       'Thank you for opening the case. We are Isla, and we turn your LinkedIn into booked sales meetings. We find the buyers who fit your ICP, grow and warm that network every day, and work every lead until it is a call on your calendar. You just approve.',
-    closing: 'The coin in this case opens your gift.\n\nWe would love to sail with you. Hold your phone to the coin, or scan the code.',
-    nfcCaption: 'Or hold your phone to the coin.',
+    goalLine: 'The path to {goal}',
+    closing: 'The coin in this case is the first step on that route: it opens your gift. We would love to sail the rest of it with you.',
+    site: 'isla.to',
+    qrCaption: 'Or scan the code',
+    // The break is explicit so the caption splits where it reads, not where the column runs out.
+    nfcCaption: 'Hold your phone\nto the coin',
   },
   pt: {
     ...MAP_LETTER.pt,
     intro:
       'Obrigado por abrir a case. Somos a Isla e transformamos o seu LinkedIn em reuniões de vendas agendadas. Encontramos os compradores que estão no seu ICP, crescemos e aquecemos essa rede todos os dias, e trabalhamos cada lead até virar uma call na sua agenda. Você só aprova.',
-    closing: 'A moeda desta case abre o seu presente.\n\nQueremos navegar com vocês. Aproxime o celular da moeda ou escaneie o código.',
-    nfcCaption: 'Ou aproxime o celular da moeda.',
+    goalLine: 'O caminho até {goal}',
+    closing: 'A moeda desta case é o primeiro passo dessa rota: é ela que abre o seu presente. Queremos navegar com vocês o resto do caminho.',
+    site: 'isla.to',
+    qrCaption: 'Ou escaneie o código',
+    nfcCaption: 'Encoste o celular\nna moeda',
   },
 }
 

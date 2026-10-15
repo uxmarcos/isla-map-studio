@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Dev-only: both letters side by side, in every paper and language, to review the print without
+  signing in to the Studio. Vite serves it at /letter-preview.html in `npm run dev`; it is not part
+  of the build, which has index.html as its only entry. It goes through toLetterData, the same path
+  the editor and the export use, so what it draws is the real render.
+-->
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Carta — mapa x moeda (preview)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap" />
+    <style>
+      :root { color-scheme: dark }
+      body { margin: 0; background: #141414; color: #e8e8e4; font-family: Manrope, sans-serif; }
+      nav { display: flex; gap: 18px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #2a2a2a; font-size: 13px; position: sticky; top: 0; background: #141414; z-index: 2; flex-wrap: wrap; }
+      nav b { font-weight: 600; color: #8a8a85; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+      nav a { color: #9a9a95; text-decoration: none; padding: 3px 9px; border-radius: 99px; }
+      nav a.on { background: #e8e8e4; color: #141414; font-weight: 600; }
+      main { display: flex; gap: 20px; padding: 20px 16px 40px; align-items: flex-start; }
+      figure { margin: 0; flex: 1; min-width: 0; }
+      figcaption { font-size: 12px; color: #8a8a85; padding-bottom: 8px; letter-spacing: .04em; }
+      canvas { display: block; width: 100%; height: auto; box-shadow: 0 10px 40px #0009; }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <b>Idioma</b><span id="langs"></span>
+      <b>Papel</b><span id="styles"></span>
+    </nav>
+    <main>
+      <figure><figcaption id="cap-map">Carta do mapa (baú)</figcaption><canvas id="map"></canvas></figure>
+      <figure><figcaption id="cap-coin">Carta da moeda (case)</figcaption><canvas id="coin"></canvas></figure>
+    </main>
+    <script type="module">
+      import { drawLetter, LETTER_W, LETTER_H, loadLetterFonts, loadPaper } from '/src/letter/render.ts'
+      import { toLetterData } from '/src/letter/data.ts'
+      import { newClient } from '/src/store.ts'
+
+      const q = new URLSearchParams(location.search)
+      const lang = q.get('lang') || 'pt'
+      const style = q.get('style') || 'color'
+      const link = (k, v, label) => {
+        const u = new URLSearchParams(location.search)
+        u.set(k, v)
+        return `<a class="${(q.get(k) || (k === 'lang' ? 'pt' : 'color')) === v ? 'on' : ''}" href="?${u}">${label}</a>`
+      }
+      document.getElementById('langs').innerHTML = link('lang', 'pt', 'Português') + link('lang', 'en', 'English')
+      document.getElementById('styles').innerHTML =
+        link('style', 'color', 'Colorido') + link('style', 'white', 'Branco') + link('style', 'dark', 'Preto')
+
+      // The real path: a Client through toLetterData, exactly as the editor and the export do.
+      const client = (kind) => ({ ...newClient(kind), company: 'Abacate Pay', lang, style, qrUrl: 'https://gift.isla.to/abacatepay' })
+
+      const paper = await loadPaper(style)
+      await loadLetterFonts()
+      await document.fonts.ready
+      for (const kind of ['map', 'coin']) {
+        const c = document.getElementById(kind)
+        c.width = 1700
+        c.height = Math.round((1700 * LETTER_H) / LETTER_W)
+        drawLetter(c, style, paper, toLetterData(client(kind), null))
+      }
+      window.__ready = true
+    </script>
+  </body>
+</html>

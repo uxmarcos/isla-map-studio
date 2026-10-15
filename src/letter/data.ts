@@ -15,7 +15,10 @@ export function letterLogo(c: Client): Promise<HTMLCanvasElement | null> {
   return logoCache.get(key)!
 }
 
-/** Everything the letter needs: company, logo, goal (the map's X, the client's goal on a coin) and the QR. */
+/** Everything the letter needs: track, company, logo, goal (the map's X, the client's goal on a coin) and the QR. */
 export function toLetterData(c: Client, logo: HTMLCanvasElement | null): LetterData {
-  return { lang: c.lang, logo, text: letterText(kindOf(c), c.lang, c.letter), company: c.company, goal: c.destination, qrUrl: toMapData(c).qrUrl }
+  const m = toMapData(c)
+  // {goal} reads after "O caminho até" / "The path to", so it takes the same wording as the map's
+  // subtitle: the default goal is an imperative ("Transforme…") that would not read there.
+  return { kind: kindOf(c), lang: c.lang, logo, text: letterText(kindOf(c), c.lang, c.letter), company: c.company, goal: m.pathTo || c.destination, qrUrl: m.qrUrl }
 }

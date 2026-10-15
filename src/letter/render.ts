@@ -2,7 +2,7 @@ import QRCode from 'qrcode'
 import rough from 'roughjs'
 import type { RoughCanvas } from 'roughjs/bin/canvas'
 import type { Options } from 'roughjs/bin/core'
-import type { Lang, LetterText, MapStyle } from '../types'
+import type { Kind, Lang, LetterText, MapStyle } from '../types'
 import { loadImage } from '../map/logo'
 import { MARK_PATH, MARK_VIEWBOX } from '../map/islaMark'
 import { fillVars, PIPELINE } from './copy'
@@ -61,6 +61,8 @@ export const loadPaper = (style: MapStyle) => {
 }
 
 export interface LetterData {
+  /** Which track this letter belongs to: it decides the goal line and the footer's hierarchy. */
+  kind: Kind
   lang: Lang
   /** Client logo, already processed for this style (null: company name is written instead). */
   logo: HTMLCanvasElement | null
@@ -151,13 +153,17 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   )
   y += 105
 
+  // The goal line, measured before the cards so it comes out of the page's budget the way the
+  // closing does. The six steps explain Isla and must stay whole, so nothing else may eat them.
+  const goal = goalBlock(ctx, d.text.goalLine ? v(d.text.goalLine) : '')
+
   // Six hand-drawn step cards, three per row. The footer (QR) is pinned to the bottom,
   // so a long title or intro makes the cards a little shorter instead of overflowing.
   const gap = 60
   const cardW = (CONTENT_W - gap * 2) / 3
   const closingH = wrap(ctx, v(d.text.closing), `400 42px ${SANS}`, CONTENT_W - 80, 0).length * 42 * 1.65
   const FOOTER_TOP = LETTER_H - M - 340 - 40
-  const cardH = Math.max(540, Math.min(620, (FOOTER_TOP - 60 - closingH - 130 - y - gap) / 2))
+  const cardH = Math.max(540, Math.min(620, (FOOTER_TOP - 60 - closingH - goal.h - 130 - y - gap) / 2))
   d.text.steps.slice(0, 6).forEach((step, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
@@ -165,25 +171,124 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   })
   y += cardH * 2 + gap + 130
 
+  // The goal, where the map puts its X: at the end of the route the six steps just described.
+  if (goal.lines.length) {
+    y += GOAL_LEAD
+    divider(ctx, t, y)
+    y += GOAL_AFTER
+    for (const line of goal.lines) {
+      text(ctx, line, LETTER_W / 2, y, `700 ${goal.size}px ${SERIF}`, t.ink, 'center', 0)
+      y += goal.size * 1.2
+    }
+    y += GOAL_TAIL
+  }
+
   // Closing paragraph.
   y = paragraph(ctx, v(d.text.closing), y, `400 42px ${SANS}`, 42 * 1.65, t.soft)
 
-  // Footer: sign-off on the left, QR on the right, both anchored to the bottom margin.
-  const qrSize = 340
-  const qrX = LETTER_W - M - qrSize
-  const qrY = FOOTER_TOP
-  let sy = qrY + 120
+  // Footer: sign-off on the left, the way into the gift on the right, anchored to the bottom margin.
+  let sy = FOOTER_TOP + 120
   for (const line of v(d.text.signoff).split('\n')) {
     text(ctx, line, M, sy, `italic 400 50px ${SERIF}`, t.ink, 'left', 0)
     sy += 50 * 1.5
   }
-  qr(ctx, rc, t, d.qrUrl, qrX, qrY, qrSize)
-  nfcNote(ctx, rc, t, v(d.text.nfcCaption), qrX - 110, qrY, qrSize)
-  const label = qrLabel(d.qrUrl)
-  text(ctx, v(d.text.qrCaption).toLocaleUpperCase('pt-BR'), qrX + qrSize / 2, qrY + qrSize + (label ? 58 : 64), `700 24px ${SANS}`, t.ink, 'center', 0.2)
-  if (label) text(ctx, label.toUpperCase(), qrX + qrSize / 2, qrY + qrSize + 98, `500 23px ${SANS}`, t.soft, 'center', 0.14)
+  if (d.kind === 'coin') coinFooter(ctx, rc, t, d, v, FOOTER_TOP)
+  else mapFooter(ctx, rc, t, d, v, FOOTER_TOP)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
+}
+
+/** Space around the goal line: before its divider, divider to first baseline, and after it. */
+const GOAL_LEAD = 24
+const GOAL_AFTER = 100
+const GOAL_TAIL = 60
+
+/** The goal line's size, lines and the room it needs. Empty (the map's letter) costs nothing. */
+function goalBlock(ctx: Ctx, line: string) {
+  if (!line.trim()) return { lines: [] as string[], size: 0, h: 0 }
+  let size = 58
+  let lines = wrap(ctx, line, `700 ${size}px ${SERIF}`, CONTENT_W - 220, 0)
+  while (size > 40 && lines.length > 2) lines = wrap(ctx, line, `700 ${(size -= 4)}px ${SERIF}`, CONTENT_W - 220, 0)
+  return { lines, size, h: GOAL_LEAD + GOAL_AFTER + lines.length * size * 1.2 + GOAL_TAIL }
+}
+
+/** The caption under a QR: what it opens, and the link itself once it is valid. */
+function qrCaption(ctx: Ctx, t: LetterSpec, caption: string, url: string, cx: number, bottom: number, quiet = false) {
+  const label = qrLabel(url)
+  text(ctx, caption.toLocaleUpperCase('pt-BR'), cx, bottom + (label ? 58 : 64), `700 ${quiet ? 22 : 24}px ${SANS}`, quiet ? t.soft : t.ink, 'center', 0.2)
+  if (label) text(ctx, label.toUpperCase(), cx, bottom + 98, `500 ${quiet ? 21 : 23}px ${SANS}`, t.soft, 'center', 0.14)
+}
+
+/** The map's footer: the QR leads to the gift, and the chest's NFC logo is the shortcut beside it. */
+function mapFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: (s: string) => string, top: number) {
+  const size = 340
+  const x = LETTER_W - M - size
+  qr(ctx, rc, t, d.qrUrl, x, top, size)
+  nfcNote(ctx, rc, t, v(d.text.nfcCaption), x - 110, top, size)
+  qrCaption(ctx, t, v(d.text.qrCaption), d.qrUrl, x + size / 2, top + size)
+}
+
+/**
+ * The coin's footer, the map's inverted. The coin is what the case holds and tapping it is the
+ * whole gesture, so it takes the slot and the weight the QR carries on the map, with its caption
+ * in the same caps the map gives the QR. The QR stays beside it, smaller and quieter: the way in
+ * for a phone that will not read the tag: at 250px it still prints about 21 mm, and the tighter
+ * quiet zone keeps its modules near the ones on the map's bigger code.
+ */
+function coinFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: (s: string) => string, top: number) {
+  // A column ending at the right margin, like the map's nfcNote, holding the coin and its caption.
+  const colW = 440
+  const right = LETTER_W - M
+  const cx = right - colW / 2
+  const coin = 290
+  const cy = top + 140
+  coinTag(ctx, rc, t, cx, cy, coin)
+  // Isla's address, on the page's own axis between the sign-off and the gift, and on the footer's
+  // optical line. It is a mark, not an instruction, so it echoes the map's url: light, wide caps.
+  if (d.text.site) text(ctx, v(d.text.site).toLocaleUpperCase('pt-BR'), LETTER_W / 2, cy + 10, `400 30px ${SANS}`, t.ink, 'center', 0.24)
+  // The caption sits under the disc, not under the drawing's centre: the disc is the object the
+  // eye reads, and the waves hanging off its right would pull the words out of line with it.
+  const discX = cx - coin * COIN_DISC_SHIFT
+  let ty = cy + coin / 2 + 64
+  for (const line of wrap(ctx, v(d.text.nfcCaption).toLocaleUpperCase('pt-BR'), `700 26px ${SANS}`, colW, 0.16).slice(0, 2)) {
+    text(ctx, line, discX, ty, `700 26px ${SANS}`, t.ink, 'center', 0.16)
+    ty += 26 * 1.5
+  }
+  const qrSize = 250
+  const qrX = right - colW - 110 - qrSize
+  qr(ctx, rc, t, d.qrUrl, qrX, cy - qrSize / 2, qrSize, 20)
+  qrCaption(ctx, t, v(d.text.qrCaption), d.qrUrl, qrX + qrSize / 2, cy + qrSize / 2, true)
+}
+
+/**
+ * The waves reach 0.86 size to the right of the disc and nothing to its left, so the disc sits
+ * this much left of the whole drawing's centre for it to balance in its column.
+ */
+const COIN_DISC_SHIFT = 0.18
+
+/**
+ * The coin: the Isla mark struck on a rimmed disc, with the tag's waves off its right edge.
+ * (cx, cy) is the centre of the whole drawing, waves included, so it centres in its column;
+ * `size` is the disc's diameter.
+ */
+function coinTag(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, cx: number, cy: number, size: number) {
+  const o: Options = { stroke: t.ink, strokeWidth: 5, roughness: 1.1, bowing: 0.9, seed: 88 }
+  const x = cx - size * COIN_DISC_SHIFT
+  rc.circle(x, cy, size, o)
+  // A thin rim, so the mark fills the face the way a struck coin's device does.
+  rc.circle(x, cy, size * 0.86, { ...o, strokeWidth: 2.4, seed: 89 })
+  const mw = size * 0.54
+  const ks = mw / MARK_VIEWBOX.w
+  ctx.save()
+  ctx.translate(x - mw / 2, cy - (MARK_VIEWBOX.h * ks) / 2)
+  ctx.scale(ks, ks)
+  ctx.fillStyle = t.ink
+  ctx.fill(new Path2D(MARK_PATH), 'evenodd')
+  ctx.restore()
+  ;[0.62, 0.74, 0.86].forEach((k, i) => {
+    const d = size * k * 2
+    rc.arc(x, cy, d, d, -Math.PI * 0.22, Math.PI * 0.22, false, { ...o, strokeWidth: 3, seed: 91 + i })
+  })
 }
 
 function text(ctx: Ctx, s: string, x: number, y: number, font: string, color: string, align: CanvasTextAlign, tracking: number) {
@@ -458,7 +563,11 @@ function nfcIcon(rc: RoughCanvas, t: LetterSpec, cx: number, cy: number, size: n
   })
 }
 
-function qr(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, url: string, x: number, y: number, size: number) {
+/**
+ * `inset` is the quiet zone on each side. A smaller panel needs a smaller one to keep the modules
+ * printable: at 300 dpi a module under ~0.5 mm stops being reliable on this paper.
+ */
+function qr(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, url: string, x: number, y: number, size: number, inset = 35) {
   ctx.fillStyle = t.qrPanel
   ctx.fillRect(x + 6, y + 6, size - 12, size - 12)
   rc.rectangle(x, y, size, size, { stroke: t.ink, strokeWidth: 4, roughness: 1.3, seed: 77 })
@@ -468,7 +577,7 @@ function qr(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, url: string, x: number, y:
   }
   const code = QRCode.create(url, { errorCorrectionLevel: 'M' })
   const n = code.modules.size
-  const area = size - 70
+  const area = size - inset * 2
   const m = area / n
   const ox = x + (size - area) / 2
   const oy = y + (size - area) / 2

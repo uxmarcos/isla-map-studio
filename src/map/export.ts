@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
-import type { Client } from '../types'
+import { KIND_LABEL, kindOf, type Client } from '../types'
 import { toMapData } from '../store'
 import { TEMPLATES } from './layout'
 import { processLogo } from './logo'
@@ -10,10 +10,10 @@ import { letterLogo, toLetterData } from '../letter/data'
 import { checkQrUrl } from '../qr'
 import { download } from '../download'
 
-/** A map printed without its gift link loses the gift: never export one. */
+/** A piece printed without its gift link loses the gift: never export one. */
 function assertQr(c: Client) {
   const q = checkQrUrl(c.qrUrl)
-  if (!q.ok) throw new Error(`${c.company || 'Mapa sem nome'}: ${q.error}`)
+  if (!q.ok) throw new Error(`${c.company || `${KIND_LABEL[kindOf(c)]} sem nome`}: ${q.error}`)
 }
 
 // Print size: A4 landscape (the letter is A4 portrait).

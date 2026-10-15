@@ -64,6 +64,13 @@ export function LetterFields({ c, set }: { c: Client; set: (patch: Partial<Clien
         ))}
       </div>
 
+      {/* The coin's letter prints the goal where the map has its X; the map's letter has no such line. */}
+      {text.goalLine !== undefined && (
+        <div>
+          <Label hint="Depois das etapas, no lugar do X do mapa.">Linha da meta</Label>
+          <input className="field" value={text.goalLine} onChange={(e) => edit('goalLine', e.target.value)} />
+        </div>
+      )}
       <div>
         <Label>Encerramento</Label>
         <textarea className="field min-h-28 resize-y" value={text.closing} onChange={(e) => edit('closing', e.target.value)} />
@@ -72,6 +79,13 @@ export function LetterFields({ c, set }: { c: Client; set: (patch: Partial<Clien
         <Label>Assinatura</Label>
         <textarea className="field min-h-20 resize-y" value={text.signoff} onChange={(e) => edit('signoff', e.target.value)} />
       </div>
+      {/* Isla's own address, printed in the middle of the coin letter's footer. */}
+      {text.site !== undefined && (
+        <div>
+          <Label hint="No centro do rodapé.">Site da Isla</Label>
+          <input className="field" value={text.site} onChange={(e) => edit('site', e.target.value)} />
+        </div>
+      )}
       <div>
         <Label>Legenda do QR</Label>
         <input className="field" value={text.qrCaption} onChange={(e) => edit('qrCaption', e.target.value)} />

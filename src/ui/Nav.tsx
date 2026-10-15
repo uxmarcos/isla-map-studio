@@ -7,8 +7,11 @@ import { kindOf } from '../types'
 export function Nav({ route }: { route: Route }) {
   const email = useSession()?.user.email
   // Which track is open. The editor's route carries no track: it comes from the piece it has open.
+  // "New from this one" carries none either (#/new/from/:id reads as the map track), and the new
+  // piece is born on the source's track, so that is the piece to ask.
   const clients = useClients()
-  const editing = route.name === 'client' ? clients.find((c) => c.id === route.id) : undefined
+  const openId = route.name === 'client' ? route.id : route.name === 'new' ? route.from : undefined
+  const editing = openId ? clients.find((c) => c.id === openId) : undefined
   const coin = route.name === 'coins' || (route.name === 'new' && route.kind === 'coin') || (!!editing && kindOf(editing) === 'coin')
   const mapTrack = !coin && (route.name === 'list' || route.name === 'new' || route.name === 'client')
   const link = (href: string, label: string, active: boolean) => (

@@ -34,10 +34,22 @@ export interface LetterText {
   intro: string
   howTitle: string
   steps: LetterStep[]
+  /**
+   * The coin's letter only: the client's goal, printed after the steps that lead to it. It carries
+   * what the map prints by the X, which a case with a coin has nowhere to put. Absent on the map's
+   * letter, which has the map itself; the renderer draws it only when it is set.
+   */
+  goalLine?: string
   closing: string
   signoff: string
+  /**
+   * The coin's letter only: Isla's own address, on the footer's axis. Not the gift link, which is
+   * printed under the QR; the map's letter leaves this out because its footer centre is taken.
+   */
+  site?: string
+  /** Under the QR. On the coin the QR is the fallback, so this reads as the second way in. */
   qrCaption: string
-  /** Beside the QR: the chest's logo is an NFC tag that opens the same gift. */
+  /** The NFC gesture: the chest's logo on the map's letter, the coin itself on the coin's. */
   nfcCaption: string
 }
 
