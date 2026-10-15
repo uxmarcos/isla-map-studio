@@ -163,7 +163,11 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   const cardW = (CONTENT_W - gap * 2) / 3
   const closingH = wrap(ctx, v(d.text.closing), `400 42px ${SANS}`, CONTENT_W - 80, 0).length * 42 * 1.65
   const FOOTER_TOP = LETTER_H - M - 340 - 40
-  const cardH = Math.max(540, Math.min(620, (FOOTER_TOP - 60 - closingH - goal.h - 130 - y - gap) / 2))
+  // Clearance between the closing and the footer's ink. The coin needs far more than the map: its
+  // block is taller (the tag's waves rise above the disc, the caption runs to two lines) and it
+  // hangs lower. Without it the cards clamp at their floor and the closing runs into the coin.
+  const clear = d.kind === 'coin' ? 190 : 60
+  const cardH = Math.max(540, Math.min(620, (FOOTER_TOP - clear - closingH - goal.h - 130 - y - gap) / 2))
   d.text.steps.slice(0, 6).forEach((step, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
@@ -192,7 +196,7 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
     text(ctx, line, M, sy, `italic 400 50px ${SERIF}`, t.ink, 'left', 0)
     sy += 50 * 1.5
   }
-  if (d.kind === 'coin') coinFooter(ctx, rc, t, d, v, FOOTER_TOP)
+  if (d.kind === 'coin') coinFooter(ctx, rc, t, d, v)
   else mapFooter(ctx, rc, t, d, v, FOOTER_TOP)
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -200,8 +204,8 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
 
 /** Space around the goal line: before its divider, divider to first baseline, and after it. */
 const GOAL_LEAD = 24
-const GOAL_AFTER = 100
-const GOAL_TAIL = 60
+const GOAL_AFTER = 78
+const GOAL_TAIL = 46
 
 /** The goal line's size, lines and the room it needs. Empty (the map's letter) costs nothing. */
 function goalBlock(ctx: Ctx, line: string) {
@@ -235,22 +239,27 @@ function mapFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: (
  * for a phone that will not read the tag: at 250px it still prints about 21 mm, and the tighter
  * quiet zone keeps its modules near the ones on the map's bigger code.
  */
-function coinFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: (s: string) => string, top: number) {
+function coinFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: (s: string) => string) {
   // A column ending at the right margin, like the map's nfcNote, holding the coin and its caption.
   const colW = 440
   const right = LETTER_W - M
   const cx = right - colW / 2
-  const coin = 290
-  const cy = top + 140
+  const coin = 280
+  const lines = wrap(ctx, v(d.text.nfcCaption).toLocaleUpperCase('pt-BR'), `700 26px ${SANS}`, colW, 0.16).slice(0, 2)
+  // Anchored to the foot of the page rather than hung off the sign-off's line: the block sits well
+  // below the closing, and its caption ends where the map's gift link does.
+  const lastBaseline = LETTER_H - 225
+  const discBottom = lastBaseline - (lines.length - 1) * 26 * 1.5 - 64
+  const cy = discBottom - coin / 2
   coinTag(ctx, rc, t, cx, cy, coin)
   // Isla's address, on the page's own axis between the sign-off and the gift, and on the footer's
   // optical line. It is a mark, not an instruction, so it echoes the map's url: light, wide caps.
-  if (d.text.site) text(ctx, v(d.text.site).toLocaleUpperCase('pt-BR'), LETTER_W / 2, cy + 10, `400 30px ${SANS}`, t.ink, 'center', 0.24)
+  if (d.text.site) text(ctx, v(d.text.site).toLocaleUpperCase('pt-BR'), LETTER_W / 2, cy, `400 30px ${SANS}`, t.ink, 'center', 0.24)
   // The caption sits under the disc, not under the drawing's centre: the disc is the object the
   // eye reads, and the waves hanging off its right would pull the words out of line with it.
   const discX = cx - coin * COIN_DISC_SHIFT
-  let ty = cy + coin / 2 + 64
-  for (const line of wrap(ctx, v(d.text.nfcCaption).toLocaleUpperCase('pt-BR'), `700 26px ${SANS}`, colW, 0.16).slice(0, 2)) {
+  let ty = discBottom + 64
+  for (const line of lines) {
     text(ctx, line, discX, ty, `700 26px ${SANS}`, t.ink, 'center', 0.16)
     ty += 26 * 1.5
   }

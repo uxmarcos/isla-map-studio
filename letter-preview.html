@@ -29,6 +29,7 @@
     <nav>
       <b>Idioma</b><span id="langs"></span>
       <b>Papel</b><span id="styles"></span>
+      <b>QR</b><span id="qrs"></span>
     </nav>
     <main>
       <figure><figcaption id="cap-map">Carta do mapa (baú)</figcaption><canvas id="map"></canvas></figure>
@@ -42,17 +43,21 @@
       const q = new URLSearchParams(location.search)
       const lang = q.get('lang') || 'pt'
       const style = q.get('style') || 'color'
+      // ?qr=off draws the "QR pendente" state, before the gift link is pasted in.
+      const qrUrl = q.get('qr') === 'off' ? '' : 'https://gift.isla.to/abacatepay'
+      const DEFAULTS = { lang: 'pt', style: 'color', qr: 'on' }
       const link = (k, v, label) => {
         const u = new URLSearchParams(location.search)
         u.set(k, v)
-        return `<a class="${(q.get(k) || (k === 'lang' ? 'pt' : 'color')) === v ? 'on' : ''}" href="?${u}">${label}</a>`
+        return `<a class="${(q.get(k) || DEFAULTS[k]) === v ? 'on' : ''}" href="?${u}">${label}</a>`
       }
       document.getElementById('langs').innerHTML = link('lang', 'pt', 'Português') + link('lang', 'en', 'English')
       document.getElementById('styles').innerHTML =
         link('style', 'color', 'Colorido') + link('style', 'white', 'Branco') + link('style', 'dark', 'Preto')
+      document.getElementById('qrs').innerHTML = link('qr', 'on', 'Com link') + link('qr', 'off', 'QR pendente')
 
       // The real path: a Client through toLetterData, exactly as the editor and the export do.
-      const client = (kind) => ({ ...newClient(kind), company: 'Abacate Pay', lang, style, qrUrl: 'https://gift.isla.to/abacatepay' })
+      const client = (kind) => ({ ...newClient(kind), company: 'Abacate Pay', lang, style, qrUrl })
 
       const paper = await loadPaper(style)
       await loadLetterFonts()
