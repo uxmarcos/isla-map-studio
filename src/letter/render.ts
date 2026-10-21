@@ -45,6 +45,22 @@ export const LETTER_SPECS: Record<MapStyle, LetterSpec> = {
   },
 }
 
+// The coin's own paper: flat black and white, no parchment and no compass roses, so the piece
+// stops reading as a page torn out of the treasure map.
+const COIN_WHITE: LetterSpec = {
+  src: '/letter-coin-white.jpg', paper: '#F6F6F4', ink: '#111111', soft: '#3A3A38',
+  accent: 'rgba(17,17,17,0.5)', accent2: 'rgba(17,17,17,0.78)', qrPanel: '#F6F6F4', qrModule: '#111111',
+}
+const COIN_DARK: LetterSpec = {
+  src: '/letter-coin-dark.jpg', paper: '#0A0A0A', ink: '#F5F5F2', soft: '#CFCFCB',
+  accent: 'rgba(245,245,242,0.45)', accent2: 'rgba(245,245,242,0.78)', qrPanel: '#F5F5F2', qrModule: '#0A0A0A',
+}
+/** The coin keeps the map's three slots so nothing else needs a special case; colour is the light sheet. */
+const COIN_SPECS: Record<MapStyle, LetterSpec> = { white: COIN_WHITE, dark: COIN_DARK, color: COIN_WHITE }
+
+/** Paper and inks for a letter: the coin track has its own. */
+export const letterSpec = (kind: Kind, style: MapStyle) => (kind === 'coin' ? COIN_SPECS : LETTER_SPECS)[style]
+
 let fontsPromise: Promise<unknown> | null = null
 export const loadLetterFonts = () =>
   (fontsPromise ??= Promise.all(
@@ -54,8 +70,8 @@ export const loadLetterFonts = () =>
   ))
 
 const papers = new Map<string, Promise<HTMLImageElement>>()
-export const loadPaper = (style: MapStyle) => {
-  const { src } = LETTER_SPECS[style]
+export const loadPaper = (kind: Kind, style: MapStyle) => {
+  const { src } = letterSpec(kind, style)
   if (!papers.has(src)) papers.set(src, loadImage(src))
   return papers.get(src)!
 }
@@ -78,9 +94,33 @@ type Ctx = CanvasRenderingContext2D
 const M = 250 // page margin
 const CONTENT_W = LETTER_W - M * 2
 
+/**
+ * Every rough.js stroke, drawn precisely. roughness 0 and bowing 0 keep each shape exactly where
+ * it is and only take the tremble out, so the six step illustrations survive the change intact —
+ * the alternative was redrawing all of them. Options are always rough.js's last argument.
+ */
+function straight(rc: RoughCanvas): RoughCanvas {
+  const flat = (o: Options = {}): Options => ({ ...o, roughness: 0, bowing: 0, preserveVertices: true })
+  return new Proxy(rc, {
+    get(target, prop, receiver) {
+      const fn = Reflect.get(target, prop, receiver)
+      if (typeof fn !== 'function') return fn
+      return (...args: unknown[]) => {
+        const last = args[args.length - 1]
+        const hasOptions = typeof last === 'object' && last !== null && !Array.isArray(last)
+        return fn.apply(target, hasOptions ? [...args.slice(0, -1), flat(last as Options)] : [...args, flat()])
+      }
+    },
+  })
+}
+
 /** Draws the full letter onto a canvas of any size, laid out in A4 pixels at 300 dpi. */
 export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HTMLImageElement, d: LetterData) {
-  const t = LETTER_SPECS[style]
+  const coin = d.kind === 'coin'
+  const t = letterSpec(d.kind, style)
+  // Headings: the map's letter is set in its serif; the coin's drops it for the body's grotesque,
+  // which is the whole difference in voice between a chart and a spec sheet.
+  const HEAD = coin ? SANS : SERIF
   const ctx = canvas.getContext('2d')!
   const k = canvas.width / LETTER_W
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -88,7 +128,7 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   ctx.drawImage(paper, 0, 0, canvas.width, canvas.height)
   ctx.setTransform(k, 0, 0, k, 0, 0)
   ctx.textBaseline = 'alphabetic'
-  const rc = rough.canvas(canvas)
+  const rc = coin ? straight(rough.canvas(canvas)) : rough.canvas(canvas)
   const v = (s: string) => fillVars(s, d.company.trim() || 'Company', d.goal.trim() || '…')
 
   // Header: Isla | client, a partnership line. Then the eyebrow.
@@ -111,9 +151,9 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   } else {
     ctx.textBaseline = 'middle'
     let fs = 64
-    ctx.font = `700 ${fs}px ${SERIF}`
-    while (fs > 36 && ctx.measureText(d.company).width > 620) ctx.font = `700 ${(fs -= 2)}px ${SERIF}`
-    text(ctx, d.company.trim() || 'Company', LETTER_W / 2 + sideGap, headCy, `700 ${fs}px ${SERIF}`, t.ink, 'left', 0)
+    ctx.font = `700 ${fs}px ${HEAD}`
+    while (fs > 36 && ctx.measureText(d.company).width > 620) ctx.font = `700 ${(fs -= 2)}px ${HEAD}`
+    text(ctx, d.company.trim() || 'Company', LETTER_W / 2 + sideGap, headCy, `700 ${fs}px ${HEAD}`, t.ink, 'left', 0)
     ctx.textBaseline = 'alphabetic'
   }
   let y = headCy + 200
@@ -124,18 +164,19 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   const title = v(d.text.title)
   let size = 104
   let lines: string[] = []
+  // The grotesque sets tighter than the serif at the same size, so the coin's title can run larger.
   for (; size >= 64; size -= 4) {
-    lines = wrap(ctx, title, `700 ${size}px ${SERIF}`, CONTENT_W, 0)
+    lines = wrap(ctx, title, `700 ${size}px ${HEAD}`, CONTENT_W, coin ? -0.02 : 0)
     if (lines.length <= 2) break
   }
   for (const line of lines) {
-    text(ctx, line, LETTER_W / 2, y, `700 ${size}px ${SERIF}`, t.ink, 'center', 0)
+    text(ctx, line, LETTER_W / 2, y, `700 ${size}px ${HEAD}`, t.ink, 'center', coin ? -0.02 : 0)
     y += size * 1.2
   }
 
-  // Ornament: line, diamond, line.
+  // Ornament: line, diamond, line. The coin gets a plain hairline instead.
   y += 10
-  divider(ctx, t, y)
+  divider(ctx, t, y, coin)
   y += 120
 
   // Intro paragraph.
@@ -143,19 +184,30 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
 
   // How it works.
   y += 110
-  text(ctx, v(d.text.howTitle), LETTER_W / 2, y, `700 60px ${SERIF}`, t.ink, 'center', 0)
-  ctx.font = `700 60px ${SERIF}`
+  text(ctx, v(d.text.howTitle), LETTER_W / 2, y, `700 60px ${HEAD}`, t.ink, 'center', 0)
+  ctx.font = `700 60px ${HEAD}`
   ctx.letterSpacing = '0px'
   const hw = ctx.measureText(v(d.text.howTitle)).width
-  rc.curve(
-    [[LETTER_W / 2 - hw / 2 - 20, y + 34], [LETTER_W / 2 - hw / 6, y + 44], [LETTER_W / 2 + hw / 4, y + 30], [LETTER_W / 2 + hw / 2 + 20, y + 40]],
-    { stroke: t.ink, strokeWidth: 3.5, roughness: 1.2, seed: 41 },
-  )
+  if (coin) {
+    // A rule under the title, exactly its width: the hand-drawn swoosh with the tremble removed
+    // would still wander, because its control points are at four different heights.
+    ctx.strokeStyle = t.ink
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(LETTER_W / 2 - hw / 2, y + 36)
+    ctx.lineTo(LETTER_W / 2 + hw / 2, y + 36)
+    ctx.stroke()
+  } else {
+    rc.curve(
+      [[LETTER_W / 2 - hw / 2 - 20, y + 34], [LETTER_W / 2 - hw / 6, y + 44], [LETTER_W / 2 + hw / 4, y + 30], [LETTER_W / 2 + hw / 2 + 20, y + 40]],
+      { stroke: t.ink, strokeWidth: 3.5, roughness: 1.2, seed: 41 },
+    )
+  }
   y += 105
 
   // The goal line, measured before the cards so it comes out of the page's budget the way the
   // closing does. The six steps explain Isla and must stay whole, so nothing else may eat them.
-  const goal = goalBlock(ctx, d.text.goalLine ? v(d.text.goalLine) : '')
+  const goal = goalBlock(ctx, d.text.goalLine ? v(d.text.goalLine) : '', HEAD)
 
   // Six hand-drawn step cards, three per row. The footer (QR) is pinned to the bottom,
   // so a long title or intro makes the cards a little shorter instead of overflowing.
@@ -171,17 +223,17 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   d.text.steps.slice(0, 6).forEach((step, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
-    stepCard(ctx, rc, t, d.lang, i, v(step.title), v(step.text), M + col * (cardW + gap), y + row * (cardH + gap), cardW, cardH)
+    stepCard(ctx, rc, t, d.lang, i, v(step.title), v(step.text), M + col * (cardW + gap), y + row * (cardH + gap), cardW, cardH, HEAD)
   })
   y += cardH * 2 + gap + 130
 
   // The goal, where the map puts its X: at the end of the route the six steps just described.
   if (goal.lines.length) {
     y += GOAL_LEAD
-    divider(ctx, t, y)
+    divider(ctx, t, y, coin)
     y += GOAL_AFTER
     for (const line of goal.lines) {
-      text(ctx, line, LETTER_W / 2, y, `700 ${goal.size}px ${SERIF}`, t.ink, 'center', 0)
+      text(ctx, line, LETTER_W / 2, y, `700 ${goal.size}px ${HEAD}`, t.ink, 'center', 0)
       y += goal.size * 1.2
     }
     y += GOAL_TAIL
@@ -192,8 +244,11 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
 
   // Footer: sign-off on the left, the way into the gift on the right, anchored to the bottom margin.
   let sy = FOOTER_TOP + 120
+  // Manrope has no italic, and a synthesised slant is not a typeface: the coin signs in upright
+  // medium instead, which is also the quieter, more deliberate voice the track asks for.
+  const signFont = coin ? `500 50px ${SANS}` : `italic 400 50px ${SERIF}`
   for (const line of v(d.text.signoff).split('\n')) {
-    text(ctx, line, M, sy, `italic 400 50px ${SERIF}`, t.ink, 'left', 0)
+    text(ctx, line, M, sy, signFont, t.ink, 'left', 0)
     sy += 50 * 1.5
   }
   if (d.kind === 'coin') coinFooter(ctx, rc, t, d, v)
@@ -208,11 +263,11 @@ const GOAL_AFTER = 78
 const GOAL_TAIL = 46
 
 /** The goal line's size, lines and the room it needs. Empty (the map's letter) costs nothing. */
-function goalBlock(ctx: Ctx, line: string) {
+function goalBlock(ctx: Ctx, line: string, head: string) {
   if (!line.trim()) return { lines: [] as string[], size: 0, h: 0 }
   let size = 58
-  let lines = wrap(ctx, line, `700 ${size}px ${SERIF}`, CONTENT_W - 220, 0)
-  while (size > 40 && lines.length > 2) lines = wrap(ctx, line, `700 ${(size -= 4)}px ${SERIF}`, CONTENT_W - 220, 0)
+  let lines = wrap(ctx, line, `700 ${size}px ${head}`, CONTENT_W - 220, 0)
+  while (size > 40 && lines.length > 2) lines = wrap(ctx, line, `700 ${(size -= 4)}px ${head}`, CONTENT_W - 220, 0)
   return { lines, size, h: GOAL_LEAD + GOAL_AFTER + lines.length * size * 1.2 + GOAL_TAIL }
 }
 
@@ -341,11 +396,19 @@ function paragraph(ctx: Ctx, s: string, y: number, font: string, lh: number, col
   return y
 }
 
-function divider(ctx: Ctx, t: LetterSpec, y: number) {
+/** plain: one hairline, no diamond — the coin's rule. */
+function divider(ctx: Ctx, t: LetterSpec, y: number, plain = false) {
   const half = 420
   const cx = LETTER_W / 2
   ctx.strokeStyle = t.ink
-  ctx.lineWidth = 3
+  ctx.lineWidth = plain ? 2 : 3
+  if (plain) {
+    ctx.beginPath()
+    ctx.moveTo(cx - half, y)
+    ctx.lineTo(cx + half, y)
+    ctx.stroke()
+    return
+  }
   ctx.beginPath()
   ctx.moveTo(cx - half, y)
   ctx.lineTo(cx - 30, y)
@@ -364,23 +427,23 @@ function divider(ctx: Ctx, t: LetterSpec, y: number) {
 
 function stepCard(
   ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: number, title: string, body: string,
-  x: number, y: number, w: number, h: number,
+  x: number, y: number, w: number, h: number, head: string,
 ) {
   const base: Options = { stroke: t.ink, strokeWidth: 3.5, roughness: 1.5, bowing: 1.4, seed: 100 + i * 7 }
   rc.rectangle(x, y, w, h, base)
 
-  // Number in a hand-drawn circle, top-left.
+  // Number in a circle, top-left (hand-drawn on the map's letter, struck on the coin's).
   rc.circle(x + 62, y + 62, 72, { ...base, strokeWidth: 3, seed: 200 + i })
-  text(ctx, String(i + 1), x + 62, y + 77, `700 40px ${SERIF}`, t.ink, 'center', 0)
+  text(ctx, String(i + 1), x + 62, y + 77, `700 40px ${head}`, t.ink, 'center', 0)
 
   const squeeze = 620 - h
   // Kept clear of the number circle in the corner.
   illustration(ctx, rc, t, lang, i, x + w / 2 + 20, y + 225 - squeeze * 0.4, w - 170, 240 - squeeze * 0.35)
 
   let ty = y + 405 - squeeze * 0.55
-  const tLines = wrap(ctx, title.toLocaleUpperCase('pt-BR'), `700 31px ${SERIF}`, w - 70, 0.04)
+  const tLines = wrap(ctx, title.toLocaleUpperCase('pt-BR'), `700 31px ${head}`, w - 70, 0.04)
   for (const line of tLines.slice(0, 2)) {
-    text(ctx, line, x + w / 2, ty, `700 31px ${SERIF}`, t.ink, 'center', 0.04)
+    text(ctx, line, x + w / 2, ty, `700 31px ${head}`, t.ink, 'center', 0.04)
     ty += 31 * 1.3
   }
   ty += 16

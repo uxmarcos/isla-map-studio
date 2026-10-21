@@ -188,8 +188,9 @@ function Editor({ initial, isNew }: { initial: Client; isNew: boolean }) {
         <form className="card fade-up order-2 space-y-8 rounded-3xl p-5 sm:p-7 lg:order-1" onSubmit={(e) => e.preventDefault()} style={{ animationDelay: '120ms' }}>
           <section className="space-y-4">
             <p className="eyebrow">{coin ? 'Versão da carta' : 'Versão do mapa'}</p>
-            <div className="grid grid-cols-3 gap-2">
-              {STYLE_ORDER.map((st) => (
+            {/* Black and white only on the coin track: there is no colour sheet for it. */}
+            <div className={`grid gap-2 ${coin ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              {(coin ? STYLE_ORDER.filter((s) => s !== 'color') : STYLE_ORDER).map((st) => (
                 <button
                   key={st}
                   type="button"

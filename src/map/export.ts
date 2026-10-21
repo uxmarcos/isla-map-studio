@@ -51,7 +51,7 @@ export async function renderFull(c: Client): Promise<HTMLCanvasElement> {
 /** Renders a client's letter at full A4 resolution (300 dpi). */
 export async function renderLetter(c: Client): Promise<HTMLCanvasElement> {
   assertQr(c)
-  const [paper, logo] = await Promise.all([loadPaper(c.style), letterLogo(c), loadLetterFonts()])
+  const [paper, logo] = await Promise.all([loadPaper(kindOf(c), c.style), letterLogo(c), loadLetterFonts()])
   const canvas = document.createElement('canvas')
   canvas.width = LETTER_W
   canvas.height = LETTER_H

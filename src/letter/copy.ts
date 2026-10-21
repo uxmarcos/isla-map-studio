@@ -56,12 +56,15 @@ const MAP_LETTER: Record<Lang, LetterText> = {
 const COIN_LETTER: Record<Lang, LetterText> = {
   en: {
     ...MAP_LETTER.en,
+    // Nothing nautical on this track: no welcome aboard, no sailing, no route. The map earns that
+    // language from its artwork; the coin has none, so there it is only costume.
+    title: 'Isla and {company}, from today.',
     intro:
       'Thank you for opening the case. We are Isla, and we turn your LinkedIn into booked sales meetings. We find the buyers who fit your ICP, grow and warm that network every day, and work every lead until it is a call on your calendar. You just approve.',
-    goalLine: 'The path to {goal}',
-    // One line: the goal line above already names the route, so the closing only has to point at
-    // the coin. A second line pushes the footer up into the text.
-    closing: 'The coin in this case opens your gift. We would love to sail that route with you.',
+    goalLine: 'The goal: {goal}',
+    // One line: the goal line above already names it, so the closing only has to point at the
+    // coin. A second line pushes the footer up into the text.
+    closing: 'The coin in this case opens your gift. Let us build this with you.',
     site: 'isla.to',
     qrCaption: 'Or scan the code',
     // The break is explicit so the caption splits where it reads, not where the column runs out.
@@ -69,10 +72,11 @@ const COIN_LETTER: Record<Lang, LetterText> = {
   },
   pt: {
     ...MAP_LETTER.pt,
+    title: 'Isla e {company}, a partir de agora.',
     intro:
       'Obrigado por abrir a case. Somos a Isla e transformamos o seu LinkedIn em reuniões de vendas agendadas. Encontramos os compradores que estão no seu ICP, crescemos e aquecemos essa rede todos os dias, e trabalhamos cada lead até virar uma call na sua agenda. Você só aprova.',
-    goalLine: 'O caminho até {goal}',
-    closing: 'A moeda desta case abre o seu presente. Queremos navegar essa rota com vocês.',
+    goalLine: 'A meta: {goal}',
+    closing: 'A moeda desta case abre o seu presente. Vamos construir isso com vocês.',
     site: 'isla.to',
     qrCaption: 'Ou escaneie o código',
     nfcCaption: 'Encoste o celular\nna moeda',

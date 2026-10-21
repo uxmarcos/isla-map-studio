@@ -14,6 +14,11 @@ const STYLES = {
   color: { base: [233, 219, 190], noise: 9, fibre: '#7a6040', fibreOpacity: 0.06, rose: '#8a6a3a', roseOpacity: 0.12, vignette: 0.16, vignetteColor: '#6b4a1e', frame: '#3a3226' },
   white: { base: [230, 229, 224], noise: 6, fibre: '#55544f', fibreOpacity: 0.04, rose: '#5a5a55', roseOpacity: 0.07, vignette: 0.06 },
   dark: { base: [20, 20, 20], noise: 5, fibre: '#f5f5f2', fibreOpacity: 0.035, rose: '#f5f5f2', roseOpacity: 0.05, vignette: 0 },
+  // The coin track: flat black and white, no parchment fibre and no compass roses. Its detail is
+  // technical instead — a hairline frame, corner crosshairs and a fine scale down the two sides.
+  // The little noise left only keeps a flat tint from banding in print.
+  'coin-white': { base: [246, 246, 244], noise: 2.5, tech: '#161616', techOpacity: 0.5 },
+  'coin-dark': { base: [10, 10, 10], noise: 2.5, tech: '#f5f5f2', techOpacity: 0.42 },
 }
 
 // Seeded random so every build gives the same paper.
@@ -69,6 +74,28 @@ function frame(color) {
   return `<g opacity="0.85">${lines.join('')}${star(a, a)}${star(W - a, a)}${star(a, H - a)}${star(W - a, H - a)}</g>`
 }
 
+/**
+ * The coin paper's detail: a hairline frame, a crosshair at each corner where the rules would meet,
+ * and a fine scale down the left and right edges. Drawn, not photographed: nothing here is aged.
+ */
+function techMarks(color, opacity) {
+  const inset = 96, arm = 34, gap = 14
+  const parts = [
+    `<rect x="${inset}" y="${inset}" width="${W - inset * 2}" height="${H - inset * 2}" fill="none" stroke="${color}" stroke-width="2"/>`,
+  ]
+  for (const [cx, cy] of [[inset, inset], [W - inset, inset], [inset, H - inset], [W - inset, H - inset]]) {
+    parts.push(`<line x1="${cx - arm}" y1="${cy}" x2="${cx + arm}" y2="${cy}" stroke="${color}" stroke-width="2"/>`)
+    parts.push(`<line x1="${cx}" y1="${cy - arm}" x2="${cx}" y2="${cy + arm}" stroke="${color}" stroke-width="2"/>`)
+  }
+  // Every fifth tick is longer, so the scale reads as a measure and not as a dotted border.
+  for (let i = 1, y = inset + 150; y < H - inset - 150; i++, y += 56) {
+    const len = i % 5 === 0 ? 26 : 13
+    parts.push(`<line x1="${inset + gap}" y1="${y}" x2="${inset + gap + len}" y2="${y}" stroke="${color}" stroke-width="1.6"/>`)
+    parts.push(`<line x1="${W - inset - gap - len}" y1="${y}" x2="${W - inset - gap}" y2="${y}" stroke="${color}" stroke-width="1.6"/>`)
+  }
+  return `<g opacity="${opacity}">${parts.join('')}</g>`
+}
+
 function fibres(color, opacity) {
   const paths = []
   for (let i = 0; i < 2600; i++) {
@@ -99,7 +126,14 @@ for (const [name, s] of Object.entries(STYLES)) {
   const vignette = s.vignette
     ? `<defs><radialGradient id="v" cx="50%" cy="50%" r="75%"><stop offset="55%" stop-color="${s.vignetteColor ?? '#5a3510'}" stop-opacity="0"/><stop offset="100%" stop-color="${s.vignetteColor ?? '#5a3510'}" stop-opacity="${s.vignette}"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#v)"/>`
     : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${fibres(s.fibre, s.fibreOpacity)}${compassRose(260, 230, 760, s.rose, s.roseOpacity)}${compassRose(2380, 3330, 1150, s.rose, s.roseOpacity)}${vignette}${s.frame ? frame(s.frame) : ''}</svg>`
+  const layersSvg = [
+    s.fibreOpacity ? fibres(s.fibre, s.fibreOpacity) : '',
+    s.rose ? compassRose(260, 230, 760, s.rose, s.roseOpacity) + compassRose(2380, 3330, 1150, s.rose, s.roseOpacity) : '',
+    vignette,
+    s.frame ? frame(s.frame) : '',
+    s.tech ? techMarks(s.tech, s.techOpacity) : '',
+  ].join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${layersSvg}</svg>`
   await sharp(img, { raw: { width: W, height: H, channels: 3 } })
     .composite([{ input: Buffer.from(svg) }])
     .jpeg({ quality: 88, mozjpeg: true })

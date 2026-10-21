@@ -284,7 +284,8 @@ export function newClient(kind: Kind = 'map'): Client {
     kind,
     company: '',
     slug: '',
-    style: 'color',
+    // The coin track is black and white: it has no colour sheet to start on.
+    style: kind === 'coin' ? 'white' : 'color',
     lang: 'pt',
     goal: DEFAULT_GOAL,
     stages: [...settings.defaultStages.pt],

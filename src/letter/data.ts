@@ -2,14 +2,14 @@ import { kindOf, type Client } from '../types'
 import { toMapData } from '../store'
 import { processLogo } from '../map/logo'
 import { letterText } from './copy'
-import { LETTER_SPECS, type LetterData } from './render'
+import { letterSpec, type LetterData } from './render'
 
 const logoCache = new Map<string, Promise<HTMLCanvasElement | null>>()
 
 /** The client's logo in the letter's ink, as on the map (null when hidden or missing). */
 export function letterLogo(c: Client): Promise<HTMLCanvasElement | null> {
   if (!c.logo) return Promise.resolve(null)
-  const ink = LETTER_SPECS[c.style].ink
+  const ink = letterSpec(kindOf(c), c.style).ink
   const key = `${c.logoMode}:${ink}:${c.logo.length}:${c.logo.slice(-64)}`
   if (!logoCache.has(key)) logoCache.set(key, processLogo(c.logo, c.logoMode, ink))
   return logoCache.get(key)!
