@@ -284,8 +284,8 @@ export function newClient(kind: Kind = 'map'): Client {
     kind,
     company: '',
     slug: '',
-    // The coin track is black and white: it has no colour sheet to start on.
-    style: kind === 'coin' ? 'white' : 'color',
+    // The coin's sheet is Isla's near-black, the ground the landing and the gift page are built on.
+    style: kind === 'coin' ? 'dark' : 'color',
     lang: 'pt',
     goal: DEFAULT_GOAL,
     stages: [...settings.defaultStages.pt],

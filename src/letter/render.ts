@@ -9,8 +9,14 @@ import { fillVars, PIPELINE } from './copy'
 import { qrLabel } from '../qr'
 
 const SERIF = '"Libre Baskerville", "Times New Roman", serif'
-/** Body text on the letter; headings use the map's serif. */
+/** Body text on the map's letter; its headings use the serif above. */
 const SANS = '"Manrope", "Inter", ui-sans-serif, sans-serif'
+
+// Isla's own two faces, read off isla.to: the display serif at regular weight over near-black, and
+// Inter Tight for everything else. The coin's letter is the printed side of that same brand, so it
+// borrows both. Instrument Serif ships one weight, which is why the heading weight is a field.
+const DISPLAY = '"Instrument Serif", "Times New Roman", serif'
+const UI = '"Inter Tight", ui-sans-serif, system-ui, sans-serif'
 
 /** A4 portrait at 300 dpi. */
 export const LETTER_W = 2480
@@ -18,6 +24,12 @@ export const LETTER_H = 3508
 
 interface LetterSpec {
   src: string
+  /** Display face for the title, the goal line, the step numbers and the sign-off. */
+  head: string
+  /** Weight for that face: Instrument Serif has only one, and a synthesised bold is not a weight. */
+  headW: string
+  /** Everything else: paragraphs, captions, the small caps. */
+  body: string
   paper: string
   ink: string
   /** Body text: a touch softer than the headings. */
@@ -31,16 +43,16 @@ interface LetterSpec {
 
 export const LETTER_SPECS: Record<MapStyle, LetterSpec> = {
   white: {
-    src: '/letter-white.jpg', paper: '#E6E5E0', ink: '#161616', soft: '#2E2E2C',
+    src: '/letter-white.jpg', head: SERIF, headW: '700', body: SANS, paper: '#E6E5E0', ink: '#161616', soft: '#2E2E2C',
     accent: 'rgba(22,22,22,0.55)', accent2: 'rgba(22,22,22,0.8)', qrPanel: '#E6E5E0', qrModule: '#161616',
   },
   dark: {
-    src: '/letter-dark.jpg', paper: '#141414', ink: '#F5F5F2', soft: '#D9D9D4',
+    src: '/letter-dark.jpg', head: SERIF, headW: '700', body: SANS, paper: '#141414', ink: '#F5F5F2', soft: '#D9D9D4',
     accent: 'rgba(245,245,242,0.5)', accent2: 'rgba(245,245,242,0.8)', qrPanel: '#F5F5F2', qrModule: '#0A0A0A',
   },
   // Matches the colour map: light parchment, its dark ink, the sea's teal and the roofs' terracotta.
   color: {
-    src: '/letter-color.jpg', paper: '#E7D8BA', ink: '#2A251E', soft: '#463E33',
+    src: '/letter-color.jpg', head: SERIF, headW: '700', body: SANS, paper: '#E7D8BA', ink: '#2A251E', soft: '#463E33',
     accent: 'rgba(72,128,138,0.7)', accent2: 'rgba(168,86,56,0.72)', qrPanel: '#EFE3C8', qrModule: '#221F1D',
   },
 }
@@ -48,11 +60,11 @@ export const LETTER_SPECS: Record<MapStyle, LetterSpec> = {
 // The coin's own paper: flat black and white, no parchment and no compass roses, so the piece
 // stops reading as a page torn out of the treasure map.
 const COIN_WHITE: LetterSpec = {
-  src: '/letter-coin-white.jpg', paper: '#F6F6F4', ink: '#111111', soft: '#3A3A38',
+  src: '/letter-coin-white.jpg', head: DISPLAY, headW: '400', body: UI, paper: '#F6F6F4', ink: '#111111', soft: '#3A3A38',
   accent: 'rgba(17,17,17,0.5)', accent2: 'rgba(17,17,17,0.78)', qrPanel: '#F6F6F4', qrModule: '#111111',
 }
 const COIN_DARK: LetterSpec = {
-  src: '/letter-coin-dark.jpg', paper: '#0A0A0A', ink: '#F5F5F2', soft: '#CFCFCB',
+  src: '/letter-coin-dark.jpg', head: DISPLAY, headW: '400', body: UI, paper: '#0A0A0A', ink: '#F5F5F2', soft: '#CFCFCB',
   accent: 'rgba(245,245,242,0.45)', accent2: 'rgba(245,245,242,0.78)', qrPanel: '#F5F5F2', qrModule: '#0A0A0A',
 }
 /** The coin keeps the map's three slots so nothing else needs a special case; colour is the light sheet. */
@@ -64,7 +76,13 @@ export const letterSpec = (kind: Kind, style: MapStyle) => (kind === 'coin' ? CO
 let fontsPromise: Promise<unknown> | null = null
 export const loadLetterFonts = () =>
   (fontsPromise ??= Promise.all(
-    ['400 40px "Manrope"', '500 40px "Manrope"', '600 40px "Manrope"', '700 40px "Manrope"', '700 40px "Libre Baskerville"', 'italic 400 40px "Libre Baskerville"'].map((f) =>
+    [
+      '400 40px "Manrope"', '500 40px "Manrope"', '600 40px "Manrope"', '700 40px "Manrope"',
+      '700 40px "Libre Baskerville"', 'italic 400 40px "Libre Baskerville"',
+      // The coin's letter: Isla's display serif (one weight, plus its italic) and Inter Tight.
+      '400 40px "Instrument Serif"', 'italic 400 40px "Instrument Serif"',
+      '400 40px "Inter Tight"', '500 40px "Inter Tight"', '600 40px "Inter Tight"', '700 40px "Inter Tight"',
+    ].map((f) =>
       document.fonts.load(f),
     ),
   ))
@@ -117,10 +135,8 @@ function straight(rc: RoughCanvas): RoughCanvas {
 /** Draws the full letter onto a canvas of any size, laid out in A4 pixels at 300 dpi. */
 export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HTMLImageElement, d: LetterData) {
   const coin = d.kind === 'coin'
+  // Faces come from the spec: the map's letter keeps its book serif, the coin's uses Isla's own.
   const t = letterSpec(d.kind, style)
-  // Headings: the map's letter is set in its serif; the coin's drops it for the body's grotesque,
-  // which is the whole difference in voice between a chart and a spec sheet.
-  const HEAD = coin ? SANS : SERIF
   const ctx = canvas.getContext('2d')!
   const k = canvas.width / LETTER_W
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -151,27 +167,36 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   } else {
     ctx.textBaseline = 'middle'
     let fs = 64
-    ctx.font = `700 ${fs}px ${HEAD}`
-    while (fs > 36 && ctx.measureText(d.company).width > 620) ctx.font = `700 ${(fs -= 2)}px ${HEAD}`
-    text(ctx, d.company.trim() || 'Company', LETTER_W / 2 + sideGap, headCy, `700 ${fs}px ${HEAD}`, t.ink, 'left', 0)
+    ctx.font = `${t.headW} ${fs}px ${t.head}`
+    while (fs > 36 && ctx.measureText(d.company).width > 620) ctx.font = `${t.headW} ${(fs -= 2)}px ${t.head}`
+    text(ctx, d.company.trim() || 'Company', LETTER_W / 2 + sideGap, headCy, `${t.headW} ${fs}px ${t.head}`, t.ink, 'left', 0)
     ctx.textBaseline = 'alphabetic'
   }
   let y = headCy + 200
-  text(ctx, v(d.text.eyebrow).toLocaleUpperCase('pt-BR'), LETTER_W / 2, y, `600 32px ${SANS}`, t.soft, 'center', 0.28)
+  text(ctx, v(d.text.eyebrow).toLocaleUpperCase('pt-BR'), LETTER_W / 2, y, `600 32px ${t.body}`, t.soft, 'center', 0.28)
 
-  // Title, up to two lines, shrinking if needed.
+  // Title, up to two lines, shrinking if needed. *Asterisks* set a phrase in italic and put it on
+  // its own line: the roman-then-italic pair Isla's hero and the gift page are both built on.
+  // Tracking matches the site's display setting, which is tight.
   y += 140
   const title = v(d.text.title)
+  const emphasis = title.match(/^(.*?)\s*\*([^*]+)\*(.*)$/)
+  const tracking = coin ? -0.025 : 0
   let size = 104
-  let lines: string[] = []
-  // The grotesque sets tighter than the serif at the same size, so the coin's title can run larger.
+  let lines: { s: string; italic: boolean }[] = []
   for (; size >= 64; size -= 4) {
-    lines = wrap(ctx, title, `700 ${size}px ${HEAD}`, CONTENT_W, coin ? -0.02 : 0)
+    const font = (italic: boolean) => `${italic ? 'italic ' : ''}${t.headW} ${size}px ${t.head}`
+    lines = emphasis
+      ? [
+          ...wrap(ctx, emphasis[1], font(false), CONTENT_W, tracking).map((s) => ({ s, italic: false })),
+          ...wrap(ctx, `${emphasis[2]}${emphasis[3]}`, font(true), CONTENT_W, tracking).map((s) => ({ s, italic: true })),
+        ].filter((l) => l.s)
+      : wrap(ctx, title, font(false), CONTENT_W, tracking).map((s) => ({ s, italic: false }))
     if (lines.length <= 2) break
   }
   for (const line of lines) {
-    text(ctx, line, LETTER_W / 2, y, `700 ${size}px ${HEAD}`, t.ink, 'center', coin ? -0.02 : 0)
-    y += size * 1.2
+    text(ctx, line.s, LETTER_W / 2, y, `${line.italic ? 'italic ' : ''}${t.headW} ${size}px ${t.head}`, t.ink, 'center', tracking)
+    y += size * 1.1
   }
 
   // Ornament: line, diamond, line. The coin gets a plain hairline instead.
@@ -180,12 +205,12 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
   y += 120
 
   // Intro paragraph.
-  y = paragraph(ctx, v(d.text.intro), y, `400 42px ${SANS}`, 42 * 1.65, t.soft)
+  y = paragraph(ctx, v(d.text.intro), y, `400 42px ${t.body}`, 42 * 1.65, t.soft)
 
   // How it works.
   y += 110
-  text(ctx, v(d.text.howTitle), LETTER_W / 2, y, `700 60px ${HEAD}`, t.ink, 'center', 0)
-  ctx.font = `700 60px ${HEAD}`
+  text(ctx, v(d.text.howTitle), LETTER_W / 2, y, `${t.headW} 60px ${t.head}`, t.ink, 'center', 0)
+  ctx.font = `${t.headW} 60px ${t.head}`
   ctx.letterSpacing = '0px'
   const hw = ctx.measureText(v(d.text.howTitle)).width
   if (coin) {
@@ -207,23 +232,27 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
 
   // The goal line, measured before the cards so it comes out of the page's budget the way the
   // closing does. The six steps explain Isla and must stay whole, so nothing else may eat them.
-  const goal = goalBlock(ctx, d.text.goalLine ? v(d.text.goalLine) : '', HEAD)
+  const goal = goalBlock(ctx, d.text.goalLine ? v(d.text.goalLine) : '', t)
 
   // Six hand-drawn step cards, three per row. The footer (QR) is pinned to the bottom,
   // so a long title or intro makes the cards a little shorter instead of overflowing.
   const gap = 60
   const cardW = (CONTENT_W - gap * 2) / 3
-  const closingH = wrap(ctx, v(d.text.closing), `400 42px ${SANS}`, CONTENT_W - 80, 0).length * 42 * 1.65
+  const closingH = wrap(ctx, v(d.text.closing), `400 42px ${t.body}`, CONTENT_W - 80, 0).length * 42 * 1.65
   const FOOTER_TOP = LETTER_H - M - 340 - 40
   // Clearance between the closing and the footer's ink. The coin needs far more than the map: its
   // block is taller (the tag's waves rise above the disc, the caption runs to two lines) and it
   // hangs lower. Without it the cards clamp at their floor and the closing runs into the coin.
-  const clear = d.kind === 'coin' ? 190 : 60
-  const cardH = Math.max(540, Math.min(620, (FOOTER_TOP - clear - closingH - goal.h - 130 - y - gap) / 2))
+  const clear = d.kind === 'coin' ? 250 : 60
+  // The floor is what the cards may not go below and still read. The coin's cards carry no
+  // hand-drawn frame padding, so they take a lower one — and the lower floor is what keeps the
+  // closing off the QR when the title runs to two lines.
+  const floor = d.kind === 'coin' ? 470 : 540
+  const cardH = Math.max(floor, Math.min(620, (FOOTER_TOP - clear - closingH - goal.h - 130 - y - gap) / 2))
   d.text.steps.slice(0, 6).forEach((step, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
-    stepCard(ctx, rc, t, d.lang, i, v(step.title), v(step.text), M + col * (cardW + gap), y + row * (cardH + gap), cardW, cardH, HEAD)
+    stepCard(ctx, rc, t, d.lang, i, v(step.title), v(step.text), M + col * (cardW + gap), y + row * (cardH + gap), cardW, cardH)
   })
   y += cardH * 2 + gap + 130
 
@@ -233,22 +262,20 @@ export function drawLetter(canvas: HTMLCanvasElement, style: MapStyle, paper: HT
     divider(ctx, t, y, coin)
     y += GOAL_AFTER
     for (const line of goal.lines) {
-      text(ctx, line, LETTER_W / 2, y, `700 ${goal.size}px ${HEAD}`, t.ink, 'center', 0)
+      text(ctx, line, LETTER_W / 2, y, `${t.headW} ${goal.size}px ${t.head}`, t.ink, 'center', 0)
       y += goal.size * 1.2
     }
     y += GOAL_TAIL
   }
 
   // Closing paragraph.
-  y = paragraph(ctx, v(d.text.closing), y, `400 42px ${SANS}`, 42 * 1.65, t.soft)
+  y = paragraph(ctx, v(d.text.closing), y, `400 42px ${t.body}`, 42 * 1.65, t.soft)
 
   // Footer: sign-off on the left, the way into the gift on the right, anchored to the bottom margin.
   let sy = FOOTER_TOP + 120
-  // Manrope has no italic, and a synthesised slant is not a typeface: the coin signs in upright
-  // medium instead, which is also the quieter, more deliberate voice the track asks for.
-  const signFont = coin ? `500 50px ${SANS}` : `italic 400 50px ${SERIF}`
+  // Both display faces ship a real italic, so the sign-off keeps it on either track.
   for (const line of v(d.text.signoff).split('\n')) {
-    text(ctx, line, M, sy, signFont, t.ink, 'left', 0)
+    text(ctx, line, M, sy, `italic ${t.headW} 50px ${t.head}`, t.ink, 'left', 0)
     sy += 50 * 1.5
   }
   if (d.kind === 'coin') coinFooter(ctx, rc, t, d, v)
@@ -263,19 +290,19 @@ const GOAL_AFTER = 78
 const GOAL_TAIL = 46
 
 /** The goal line's size, lines and the room it needs. Empty (the map's letter) costs nothing. */
-function goalBlock(ctx: Ctx, line: string, head: string) {
+function goalBlock(ctx: Ctx, line: string, t: LetterSpec) {
   if (!line.trim()) return { lines: [] as string[], size: 0, h: 0 }
   let size = 58
-  let lines = wrap(ctx, line, `700 ${size}px ${head}`, CONTENT_W - 220, 0)
-  while (size > 40 && lines.length > 2) lines = wrap(ctx, line, `700 ${(size -= 4)}px ${head}`, CONTENT_W - 220, 0)
+  let lines = wrap(ctx, line, `${t.headW} ${size}px ${t.head}`, CONTENT_W - 220, 0)
+  while (size > 40 && lines.length > 2) lines = wrap(ctx, line, `${t.headW} ${(size -= 4)}px ${t.head}`, CONTENT_W - 220, 0)
   return { lines, size, h: GOAL_LEAD + GOAL_AFTER + lines.length * size * 1.2 + GOAL_TAIL }
 }
 
 /** The caption under a QR: what it opens, and the link itself once it is valid. */
 function qrCaption(ctx: Ctx, t: LetterSpec, caption: string, url: string, cx: number, bottom: number, quiet = false) {
   const label = qrLabel(url)
-  text(ctx, caption.toLocaleUpperCase('pt-BR'), cx, bottom + (label ? 58 : 64), `700 ${quiet ? 22 : 24}px ${SANS}`, quiet ? t.soft : t.ink, 'center', 0.2)
-  if (label) text(ctx, label.toUpperCase(), cx, bottom + 98, `500 ${quiet ? 21 : 23}px ${SANS}`, t.soft, 'center', 0.14)
+  text(ctx, caption.toLocaleUpperCase('pt-BR'), cx, bottom + (label ? 58 : 64), `700 ${quiet ? 22 : 24}px ${t.body}`, quiet ? t.soft : t.ink, 'center', 0.2)
+  if (label) text(ctx, label.toUpperCase(), cx, bottom + 98, `500 ${quiet ? 21 : 23}px ${t.body}`, t.soft, 'center', 0.14)
 }
 
 /** The map's footer: the QR leads to the gift, and the chest's NFC logo is the shortcut beside it. */
@@ -300,7 +327,7 @@ function coinFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: 
   const right = LETTER_W - M
   const cx = right - colW / 2
   const coin = 280
-  const lines = wrap(ctx, v(d.text.nfcCaption).toLocaleUpperCase('pt-BR'), `700 26px ${SANS}`, colW, 0.16).slice(0, 2)
+  const lines = wrap(ctx, v(d.text.nfcCaption).toLocaleUpperCase('pt-BR'), `700 26px ${t.body}`, colW, 0.16).slice(0, 2)
   // Anchored to the foot of the page rather than hung off the sign-off's line: the block sits well
   // below the closing, and its caption ends where the map's gift link does.
   const lastBaseline = LETTER_H - 225
@@ -309,13 +336,13 @@ function coinFooter(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, d: LetterData, v: 
   coinTag(ctx, rc, t, cx, cy, coin)
   // Isla's address, on the page's own axis between the sign-off and the gift, and on the footer's
   // optical line. It is a mark, not an instruction, so it echoes the map's url: light, wide caps.
-  if (d.text.site) text(ctx, v(d.text.site).toLocaleUpperCase('pt-BR'), LETTER_W / 2, cy, `400 30px ${SANS}`, t.ink, 'center', 0.24)
+  if (d.text.site) text(ctx, v(d.text.site).toLocaleUpperCase('pt-BR'), LETTER_W / 2, cy, `400 30px ${t.body}`, t.ink, 'center', 0.24)
   // The caption sits under the disc, not under the drawing's centre: the disc is the object the
   // eye reads, and the waves hanging off its right would pull the words out of line with it.
   const discX = cx - coin * COIN_DISC_SHIFT
   let ty = discBottom + 64
   for (const line of lines) {
-    text(ctx, line, discX, ty, `700 26px ${SANS}`, t.ink, 'center', 0.16)
+    text(ctx, line, discX, ty, `700 26px ${t.body}`, t.ink, 'center', 0.16)
     ty += 26 * 1.5
   }
   const qrSize = 250
@@ -338,9 +365,30 @@ const COIN_DISC_SHIFT = 0.18
 function coinTag(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, cx: number, cy: number, size: number) {
   const o: Options = { stroke: t.ink, strokeWidth: 5, roughness: 1.1, bowing: 0.9, seed: 88 }
   const x = cx - size * COIN_DISC_SHIFT
+  // The spotlight the coin sits in on the gift page, printed: a soft halo behind the disc. It is
+  // the one place this sheet is not flat, and it only reads on the near-black paper.
+  const halo = ctx.createRadialGradient(x, cy, size * 0.3, x, cy, size * 0.95)
+  halo.addColorStop(0, `${t.ink}1f`)
+  halo.addColorStop(1, `${t.ink}00`)
+  ctx.fillStyle = halo
+  ctx.beginPath()
+  ctx.arc(x, cy, size * 0.95, 0, Math.PI * 2)
+  ctx.fill()
   rc.circle(x, cy, size, o)
   // A thin rim, so the mark fills the face the way a struck coin's device does.
   rc.circle(x, cy, size * 0.86, { ...o, strokeWidth: 2.4, seed: 89 })
+  // Milled edge: the reeding around a struck coin, and the detail that makes it read as metal
+  // rather than as a drawn circle. 72 ticks is dense enough to print as texture at 300 dpi.
+  ctx.strokeStyle = t.ink
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  for (let i = 0; i < 72; i++) {
+    const a = (i / 72) * Math.PI * 2
+    const r0 = size * 0.5, r1 = size * 0.465
+    ctx.moveTo(x + Math.cos(a) * r0, cy + Math.sin(a) * r0)
+    ctx.lineTo(x + Math.cos(a) * r1, cy + Math.sin(a) * r1)
+  }
+  ctx.stroke()
   const mw = size * 0.54
   const ks = mw / MARK_VIEWBOX.w
   ctx.save()
@@ -427,28 +475,28 @@ function divider(ctx: Ctx, t: LetterSpec, y: number, plain = false) {
 
 function stepCard(
   ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: number, title: string, body: string,
-  x: number, y: number, w: number, h: number, head: string,
+  x: number, y: number, w: number, h: number,
 ) {
   const base: Options = { stroke: t.ink, strokeWidth: 3.5, roughness: 1.5, bowing: 1.4, seed: 100 + i * 7 }
   rc.rectangle(x, y, w, h, base)
 
   // Number in a circle, top-left (hand-drawn on the map's letter, struck on the coin's).
   rc.circle(x + 62, y + 62, 72, { ...base, strokeWidth: 3, seed: 200 + i })
-  text(ctx, String(i + 1), x + 62, y + 77, `700 40px ${head}`, t.ink, 'center', 0)
+  text(ctx, String(i + 1), x + 62, y + 77, `${t.headW} 40px ${t.head}`, t.ink, 'center', 0)
 
   const squeeze = 620 - h
   // Kept clear of the number circle in the corner.
   illustration(ctx, rc, t, lang, i, x + w / 2 + 20, y + 225 - squeeze * 0.4, w - 170, 240 - squeeze * 0.35)
 
   let ty = y + 405 - squeeze * 0.55
-  const tLines = wrap(ctx, title.toLocaleUpperCase('pt-BR'), `700 31px ${head}`, w - 70, 0.04)
+  const tLines = wrap(ctx, title.toLocaleUpperCase('pt-BR'), `${t.headW} 31px ${t.head}`, w - 70, 0.04)
   for (const line of tLines.slice(0, 2)) {
-    text(ctx, line, x + w / 2, ty, `700 31px ${head}`, t.ink, 'center', 0.04)
+    text(ctx, line, x + w / 2, ty, `${t.headW} 31px ${t.head}`, t.ink, 'center', 0.04)
     ty += 31 * 1.3
   }
   ty += 16
-  for (const line of wrap(ctx, body, `400 27px ${SANS}`, w - 80, 0).slice(0, 4)) {
-    text(ctx, line, x + w / 2, ty, `400 27px ${SANS}`, t.soft, 'center', 0)
+  for (const line of wrap(ctx, body, `400 27px ${t.body}`, w - 80, 0).slice(0, 4)) {
+    text(ctx, line, x + w / 2, ty, `400 27px ${t.body}`, t.soft, 'center', 0)
     ty += 27 * 1.5
   }
 }
@@ -468,7 +516,7 @@ function illustration(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: n
   const hatchB: Options = { ...hatchA, fill: t.accent2, hachureAngle: 50 }
   const solid: Options = { ...ln, fill: t.ink, fillStyle: 'solid' }
   const label = (s: string, x: number, y: number, size: number, weight = 700, color = t.ink) =>
-    text(ctx, s, x, y, `${weight} ${size}px ${SANS}`, color, 'center', 0)
+    text(ctx, s, x, y, `${weight} ${size}px ${t.body}`, color, 'center', 0)
   /** A small profile card: avatar and two text lines. */
   const profile = (x: number, y: number, cw: number, ch: number, o: Options, k: number) => {
     rc.rectangle(x, y, cw, ch, { ...o, seed: seed + k })
@@ -537,8 +585,8 @@ function illustration(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, lang: Lang, i: n
         const x = X(-1) + k * (colW + 10.6)
         rc.rectangle(x, top, colW, h * 0.82, { ...thin, seed: seed + k })
         let fs = 18
-        ctx.font = `700 ${fs}px ${SANS}`
-        while (fs > 13 && ctx.measureText(st).width > colW - 8) ctx.font = `700 ${(fs -= 1)}px ${SANS}`
+        ctx.font = `700 ${fs}px ${t.body}`
+        while (fs > 13 && ctx.measureText(st).width > colW - 8) ctx.font = `700 ${(fs -= 1)}px ${t.body}`
         label(st, x + colW / 2, top - 12, fs)
         const cards = [3, 2, 1, 1][k]
         for (let c = 0; c < cards; c++) {
@@ -604,7 +652,7 @@ function nfcNote(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, caption: string, righ
   const colW = 680
   const cx = right - colW / 2
   const icon = 120
-  const font = `500 28px ${SANS}`
+  const font = `500 28px ${t.body}`
   const lh = 28 * 1.45
   const lines = wrap(ctx, caption, font, colW, 0).slice(0, 4)
   const h = icon + 44 + lines.length * lh
@@ -644,7 +692,7 @@ function qr(ctx: Ctx, rc: RoughCanvas, t: LetterSpec, url: string, x: number, y:
   ctx.fillRect(x + 6, y + 6, size - 12, size - 12)
   rc.rectangle(x, y, size, size, { stroke: t.ink, strokeWidth: 4, roughness: 1.3, seed: 77 })
   if (!url) {
-    text(ctx, 'QR PENDENTE', x + size / 2, y + size / 2 + 10, `700 26px ${SANS}`, t.soft, 'center', 0.2)
+    text(ctx, 'QR PENDENTE', x + size / 2, y + size / 2 + 10, `700 26px ${t.body}`, t.soft, 'center', 0.2)
     return
   }
   const code = QRCode.create(url, { errorCorrectionLevel: 'M' })

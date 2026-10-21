@@ -58,7 +58,9 @@ const COIN_LETTER: Record<Lang, LetterText> = {
     ...MAP_LETTER.en,
     // Nothing nautical on this track: no welcome aboard, no sailing, no route. The map earns that
     // language from its artwork; the coin has none, so there it is only costume.
-    title: 'Isla and {company}, from today.',
+    // The sentence the gift page opens with, so the paper and the screen the coin unlocks say one
+    // thing. *Asterisks* set the phrase in italic on its own line, the way the site sets it.
+    title: 'Turn your LinkedIn into *booked sales meetings*.',
     intro:
       'Thank you for opening the case. We are Isla, and we turn your LinkedIn into booked sales meetings. We find the buyers who fit your ICP, grow and warm that network every day, and work every lead until it is a call on your calendar. You just approve.',
     goalLine: 'The goal: {goal}',
@@ -72,7 +74,7 @@ const COIN_LETTER: Record<Lang, LetterText> = {
   },
   pt: {
     ...MAP_LETTER.pt,
-    title: 'Isla e {company}, a partir de agora.',
+    title: 'Seu LinkedIn gerando *reuniões de venda*.',
     intro:
       'Obrigado por abrir a case. Somos a Isla e transformamos o seu LinkedIn em reuniões de vendas agendadas. Encontramos os compradores que estão no seu ICP, crescemos e aquecemos essa rede todos os dias, e trabalhamos cada lead até virar uma call na sua agenda. Você só aprova.',
     goalLine: 'A meta: {goal}',
